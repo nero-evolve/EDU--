@@ -1,41 +1,36 @@
-# 雲端班級版設定
+# 位元探險隊設定指南
 
-## 專案架構
+## 更新已有 Supabase 專案
 
-- `content.js`：課程步驟、題目、個人化題目產生。
-- `engine.js`：作答狀態、判分、計時、提示與分數計算；仍在瀏覽器執行。
-- `app.js`：學生課程畫面、登入入口、教師儀表板及操作事件。
-- `cloud.js`：Supabase Auth 與資料庫存取。
-- `supabase.sql`：帳號資料、班級、進度、教師評語、排行榜 RPC 與資料列安全規則。
+1. 保留 `cloud-config.js` 內現有的 Project URL 與 Publishable key；不可放入 Secret key。
+2. 開啟 Supabase 專案 → SQL Editor，把本資料夾更新後的 `supabase.sql` 全文貼上並執行。這會新增三位數班級碼並更新教師建班及學生自動加入班級的資料庫函式；既有進度表不會刪除。
+3. 到 Authentication → Sign In / Providers → Email，關閉 **Confirm email**。座號帳號使用系統內部建立的登入識別，不會寄送驗證信。
+4. 把這個資料夾最新版本中的檔案（含 `index.html`、JS、CSS、`images/`）上傳到 GitHub repository 根目錄，提交後等 Pages 部署完成。
 
-## 建立雲端服務
+## 學生登入與班級
 
-1. 建立 Supabase 專案，於 SQL Editor 執行本資料夾的 `supabase.sql`。
-2. 在 Authentication 設定 Email 登入。啟用確認信時，學生先驗證再登入，之後可在學生頁面輸入班級代碼加入；關閉確認信時，註冊畫面填入代碼即可加入。
-3. 到 Project Settings → API，複製 Project URL 與 `anon` / publishable key，填入 `cloud-config.js`。切勿使用 `service_role` key。
-4. 將整個資料夾部署到支援 ES modules 的 HTTPS 靜態網站（如 GitHub Pages）。Supabase Authentication 的 Site URL / Redirect URLs 設成網站網址。
-5. 教師先透過登入畫面建立帳號，再在 Supabase SQL Editor 將該帳號提升為教師：
+- 學生輸入 5 位數班級座號，例如 `90230`：前 3 碼 `902` 是班級碼，後 2 碼 `30` 是座號。
+- 學生第一次輸入時會自動建立帳號，之後在任何電腦輸入相同座號即可取回進度。
+- 教師須先在網站選「教師登入」，使用已開通的 Email 帳號登入。
+- 在儀表板建立班級名稱及三位數班級碼，例如班級名稱「902 班」、班級碼「902」。學生座號須以這三碼開頭，登入後會自動加入對應班級。
+- 原本透過邀請碼建立的舊班級沒有三位數班級碼。請用新班級碼建立班級，舊資料表和舊班級不會被刪除。
 
-   ```sql
-   update public.profiles
-   set role = 'teacher'
-   where id = (select id from auth.users where email = 'teacher@example.edu');
-   ```
+## 開通教師帳號
 
-   登出再登入後，教師可建立班級並提供邀請代碼。學生註冊時輸入代碼；已有帳號者目前需在首次註冊時輸入代碼。
+教師帳號不能自行取得 teacher 權限。先在 Supabase Authentication 建立教師 Email 帳號，再到 SQL Editor 執行下列指令，把 Email 換成教師帳號：
 
-## 功能與資料流
+```sql
+update public.profiles
+set role = 'teacher'
+where id = (select id from auth.users where email = 'teacher@example.edu');
+```
 
-- 學生以 Email / 密碼註冊登入。班級代碼加入班級；進度在每個課程事件後保存到 `progress`，登入其他電腦會載入雲端最後一份進度。
-- 排行依目前分數排序，同分依最近更新時間排序。排行榜只對同班成員開放。
-- 教師可建立多個班級、檢視學生進度與分數，並儲存每位學生的班級評語；學生登入後會看到評語。
-- 教師角色由管理者提升，註冊資料不能自行選擇 teacher。資料列安全政策限制學生只能讀寫自己的進度，教師只可檢視自己班級成員資料。
-- 重新開始會刪除本機及雲端進度；重刷沿用既有課程規則。
+重新登入後，該帳號會進入教師儀表板。
 
-## 目前版本限制
+## 資料與登入方式說明
 
-- 使用 Supabase Auth Email / 密碼，未加上忘記密碼流程、學校單一登入或批次匯入學生帳號。
-- 本機原有進度不會自動匯入帳號；學生登入後第一次作答才會建立雲端進度。
-- 判分仍在瀏覽器端執行；排行榜適合課堂進度與練習回饋，不應當作防作弊的正式成績系統。若要作為正式評量，需將判分和事件驗證搬到受信任的伺服器端。
-- `supabase.sql` 的 `join_class` 可在註冊確認信啟用或關閉時加入班級；驗證信模式下，學生需登入後於學生頁面輸入班級代碼。
-- 此為靜態前端加 Supabase 後端服務；Supabase 專案 URL、key、SQL migration 與網站網址仍需部署者設定，本壓縮檔沒有任何既有雲端帳密。
+- 學生座號只作為識別碼，系統以座號衍生內部登入憑證，方便跨裝置取回資料；不會要求學生輸入 Email 或密碼。
+- 依管理者選擇的免密碼方式，知道座號的人可能以該座號登入，因此不適合保存敏感個資或用作高風險正式測驗。
+- 教師端只會列出該教師已建立班級中的學生；學生進度及評語保存在 Supabase。
+- 舊版 Email 學生帳號及其進度不會自動轉成座號帳號；新座號首次登入會建立一筆新紀錄。舊資料仍留在資料庫原記錄中。
+- 圖片素材目前仍沿用原專案檔案；如需替換，將另行加入新圖片並更新 `images/`。
