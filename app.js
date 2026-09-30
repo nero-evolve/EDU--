@@ -1,4 +1,4 @@
-// Student view of the KUSU mindreader course, running entirely in the browser.
+// Student course and teacher dashboard for the Bit Explorers class site.
 import {STEPS,CARDS,HEART,CHAPS,problems,optionOrder,hintLimit} from './content.js';
 import * as course from './engine.js';
 import * as cloud from './cloud.js';
@@ -23,26 +23,28 @@ function send(kind,value=null,step=record?.state?.step||0){
   $('#reload').onclick=()=>location.reload();
  }
 }
-function loginScreen(message=''){
+function loginScreen(message='',teacherMode=false){
  $('#reset').hidden=true;
- $('#app').innerHTML='<section class="panel"><h1>帳號登入</h1><p>登入後，學習進度會同步到雲端，換一台電腦也能接著完成。</p><form id="auth-form"><label>姓名（註冊時填寫）<input name="name" autocomplete="name" required></label><label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" minlength="8" autocomplete="current-password" required></label><label>班級代碼（學生選填）<input name="code" autocomplete="off"></label><p class="err">'+esc(message)+'</p><button class="btn">登入／建立學生帳號</button></form><p class="meta">教師帳號須由管理者在 Supabase 將 profiles.role 設為 teacher。首次使用請先完成 SETUP.md。</p></section>';
- $('#auth-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{status('正在登入…');let s;try{s=await cloud.login(f.get('email'),f.get('password'));}catch(err){if(!/Invalid login credentials/i.test(err.message))throw err;s=await cloud.signup(f.get('email'),f.get('password'),f.get('name'),'student',f.get('code'));}if(!s){status('帳號已建立，請先到信箱完成驗證，再登入。');return;}await boot();}catch(err){loginScreen(err.message);}};
+ $('#app').innerHTML='<section class="panel auth-panel"><h1>'+(teacherMode?'教師登入':'學生登入')+'</h1><p>'+(teacherMode?'教師請使用已開通的 Email 帳號。':'輸入班級座號即可開始；例如 90230 代表 902 班 30 號。登入後進度會同步，換電腦也能繼續。')+'</p><form id="auth-form" class="auth-form">'+(teacherMode?'<label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" required></label>':'<label>班級座號<input name="seat" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="例如 90230" autocomplete="username" required></label>')+'<p class="err">'+esc(message)+'</p><button class="btn">'+(teacherMode?'登入教師後台':'開始學習')+'</button></form><button id="login-mode" class="plain">'+(teacherMode?'返回學生登入':'教師登入')+'</button></section>';
+ $('#login-mode').onclick=()=>loginScreen('',!teacherMode);
+ $('#auth-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{status('正在登入…');if(teacherMode)await cloud.login(f.get('email'),f.get('password'));else await cloud.loginSeat(String(f.get('seat')||'').trim());await boot();}catch(err){loginScreen(err.message,teacherMode);}};
 }
 async function renderTeacher(profile){
  $('#reset').hidden=true;
- const links=await cloud.classes();let html='<div class="panel teacher"><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+'　<button id="logout" class="plain">登出</button></p><div class="row"><input id="new-class" placeholder="班級名稱"><button id="make-class">建立班級</button></div>';
- if(!links.length)html+='<p>目前沒有班級。建立班級後，把班級代碼提供給學生。</p>';
- for(const link of links){const c=link.classes;if(!c)continue;const rows=await cloud.teacherClass(c.id);html+='<h2>'+esc(c.name)+' <small>加入代碼：'+esc(c.invite_code)+'</small></h2><div class="scroll"><table><thead><tr><th>學生</th><th>進度</th><th>分數</th><th>完成</th><th>教師評語</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{};return '<tr><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td>'+(x.score??'—')+'</td><td>'+((s.state?.state?.completed)?'完成':'進行中')+'</td><td><textarea data-comment="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" maxlength="2000">'+esc(s.teacher_comment||'')+'</textarea><button data-save-comment="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'">儲存評語</button></td></tr>';}).join('')+'</tbody></table></div>';}
- html+='</div>';$('#app').innerHTML=html;$('#logout').onclick=async()=>{await cloud.logout();loginScreen();};$('#make-class').onclick=async()=>{try{await cloud.createClass($('#new-class').value);await boot();}catch(e){status(e.message);}};document.querySelectorAll('[data-save-comment]').forEach(b=>b.onclick=async()=>{const f=document.querySelector('textarea[data-comment="'+b.dataset.saveComment+'"][data-class="'+b.dataset.class+'"]');try{await cloud.comment(b.dataset.saveComment,b.dataset.class,f.value);status('評語已儲存。');}catch(e){status(e.message);}});
+ const links=await cloud.classes();let html='<div class="panel teacher"><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+'　<button id="logout" class="plain">登出</button></p><h3>新增班級</h3><div class="row"><input id="new-class" placeholder="班級名稱（例如 902）"><input id="new-class-code" inputmode="numeric" maxlength="3" placeholder="三位班級碼"><button id="make-class">建立班級</button></div><p class="meta">學生座號前 3 碼需與班級碼相同，後 2 碼為座號。</p>';
+ if(!links.length)html+='<p>尚未建立班級。先建立三位數班級碼，例如 902。</p>';
+ for(const link of links){const c=link.classes;if(!c)continue;const rows=await cloud.teacherClass(c.id);html+='<h2>'+esc(c.name)+' <small>班級碼：'+esc(c.class_code||'尚未設定')+'</small></h2><div class="scroll"><table><thead><tr><th>座號</th><th>進度</th><th>分數</th><th>完成</th><th>教師評語</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{};return '<tr><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td>'+(x.score??'—')+'</td><td>'+((s.state?.state?.completed)?'完成':'進行中')+'</td><td><textarea data-comment="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" maxlength="2000">'+esc(s.teacher_comment||'')+'</textarea><button data-save-comment="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'">儲存評語</button></td></tr>';}).join('')+'</tbody></table></div>';}
+ html+='</div>';$('#app').innerHTML=html;$('#logout').onclick=async()=>{await cloud.logout();loginScreen();};$('#make-class').onclick=async()=>{try{await cloud.createClass($('#new-class').value,$('#new-class-code').value);await boot();}catch(e){status(e.message);}};document.querySelectorAll('[data-save-comment]').forEach(b=>b.onclick=async()=>{const f=document.querySelector('textarea[data-comment="'+b.dataset.saveComment+'"][data-class="'+b.dataset.class+'"]');try{await cloud.comment(b.dataset.saveComment,b.dataset.class,f.value);status('評語已儲存。');}catch(e){status(e.message);}});
 }
 async function boot(){
  const s=await cloud.session();if(!s){loginScreen();return;}const p=await cloud.profile();
  if(p.role==='teacher'){await renderTeacher(p);status('教師帳號已登入。');return;}
+ if(!s.user?.email?.endsWith('@students.example.com')){await cloud.logout();loginScreen('學生請使用五位數班級座號登入。');return;}
  const remote=await cloud.loadProgress();if(remote)record=course.restore(remote);else{course.reset();record=course.mine();status('進度尚未開始；完成第一個動作後會同步到雲端。');startScreen();}if(remote){savedStatus();renderStudent();}await appendStudentExtras();
 }
 function startScreen(){
  clearInterval(tickTimer);shownStep=null;
- $('#app').innerHTML='<div id="cover"><img class="cover-art" src="./images/karl-cover.webp" alt="讀心術師卡爾在後台的聚光燈下拿著五張卡片"><div class="ticket"><p class="eyebrow">今夜 · 特別場</p><h1>讀心術師卡爾</h1><p class="story">後台只剩一盞燈。卡爾握著五張卡片。想一個數字，看看你能不能拆穿他的讀心把戲。</p><button id="start" class="btn">進入後台</button><p class="note">進度會同步到你的學生帳號，可換電腦繼續<br>選擇題每猜錯一次扣 1 分 · 其他題目訂正不扣分<br>同一題提示全部用完再扣 1 分</p></div></div>';
+ $('#app').innerHTML='<div id="cover"><img class="cover-art" src="./images/karl-cover.webp" alt="位元探險隊走進資料實驗室"><div class="ticket"><p class="eyebrow">資料實驗室 · 探索任務</p><h1>位元探險隊</h1><p class="story">我是小波，今天邀你一起破解數字、文字、圖片和聲音裡的資料線索。先從五張數字卡開始吧！</p><button id="start" class="btn">開始解碼</button><p class="note">登入座號即可同步進度，換電腦也能接著完成<br>選擇題答錯每次扣 1 分；其他題可訂正<br>單題提示全部用完才扣 1 分</p></div></div>';
  $('#start').onclick=()=>send('start');
 }
 const fmt=ms=>{const t=Math.max(0,Math.round((ms||0)/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),x=t%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0');};
@@ -51,7 +53,7 @@ const liveMs=(r,s)=>{const q=r.q[s.id]||{};return (q.activeMs||0)+(q.ok||!Number
 function scorePanel(v){
  const m=v.metrics,f=v.feedback,attempt=v.state?.attempt||1;
  if(!m)return '';
- return '<div class="panel"><h3>我的學習紀錄</h3><p class="grade">'+(v.first?'第一次完成的分數':'暫計已取得')+' '+v.finalScore+'／100</p><p>'+(attempt>1?'本次重刷分數 ':'活動原分 ')+m.score+'／100 · 計時題用時 '+fmt(m.timeMs)+(attempt>1?' · 第 '+attempt+' 次作答':'')+'</p>'+(v.best?'<p>最佳紀錄：'+v.best.score+' 分 · 用時 '+fmt(v.best.timeMs)+'（第 '+v.best.attempt+' 次）</p>':'')+'<p>概念 '+m.concepts+'/18 · 位元組合 '+m.binary+'/5 · 操作活動 '+m.activities+'/3'+(m.choicePenalty?' · 選擇題錯答扣分 '+m.choicePenalty+' 分':'')+(m.hintPenalty?' · 提示扣分 '+m.hintPenalty+' 分':'')+'</p><p>實際完成 '+m.done+'/'+m.totalSteps+' 步（'+m.progress+'%） · 到達第 '+m.reached+' 步 · 跳過 '+m.skipped+' 題</p><details><summary>分數依據與診斷紀錄</summary><p>概念 70 分；五題位元組合 15 分；讀心、點陣、取樣各 5 分。選擇題每猜錯一次扣 1 分；其他題目答錯後仍可訂正，訂正本身不再扣分。同一題的提示全部用完，該題再扣 1 分（沒用完不扣）。選擇題與練習題會計時，時間只用來和自己的紀錄比較，不影響分數；離開超過 5 分鐘只算 5 分鐘。</p><p>正式提交 '+m.submissions+' 次 · 錯答後訂正 '+m.corrected+' 題 · 選擇題錯答 '+m.choicePenalty+' 次 · 提示 '+m.hints+' 次</p><p>這是可提示與訂正的活動成績，不等同獨立測驗。</p></details><div class="report"><b>依活動證據產生的回饋（規則範本）</b><p>'+esc(f.strength)+'</p><p>'+esc(f.advice)+'</p><p>'+esc(f.comment)+'</p></div></div>';
+ return '<div class="panel"><h3>我的學習紀錄</h3><p class="grade">'+(v.first?'首次完成分數':'目前累計分數')+' '+v.finalScore+'／100</p><p>'+(attempt>1?'這次練習 ':'首次作答 ')+m.score+'／100 · 作答時間 '+fmt(m.timeMs)+(attempt>1?' · 第 '+attempt+' 次作答':'')+'</p>'+(v.best?'<p>個人最佳：'+v.best.score+' 分 · 用時 '+fmt(v.best.timeMs)+'（第 '+v.best.attempt+' 次）</p>':'')+'<p>概念題 '+m.concepts+'/18 · 位元組合 '+m.binary+'/5 · 操作任務 '+m.activities+'/3'+(m.choicePenalty?' · 選擇題錯答扣 '+m.choicePenalty+' 分':'')+(m.hintPenalty?' · 提示用盡扣 '+m.hintPenalty+' 分':'')+'</p><p>完成 '+m.done+'/'+m.totalSteps+' 步（'+m.progress+'%） · 最遠到達第 '+m.reached+' 步 · 略過 '+m.skipped+' 題</p><details><summary>計分方式與作答摘要</summary><p>概念題共 70 分，五題位元組合共 15 分，三項操作任務各 5 分。選擇題答錯一次扣 1 分；其他題目可訂正。單題提示全部看完才扣 1 分。計時題時間只用於和自己的紀錄比較，不影響分數；離開超過 5 分鐘只計 5 分鐘。</p><p>提交 '+m.submissions+' 次 · 訂正 '+m.corrected+' 題 · 選擇題錯答 '+m.choicePenalty+' 次 · 使用提示 '+m.hints+' 次</p><p>這是可使用提示與訂正的學習活動紀錄，不等同獨立測驗。</p></details><div class="report"><b>學習回饋</b><p>'+esc(f.strength)+'</p><p>'+esc(f.advice)+'</p><p>'+esc(f.comment)+'</p></div></div>';
 }
 const isAction=s=>['text','opt','conv','build','trick','pixel','wave'].includes(s.t);
 const fill=(text,p)=>String(text||'').replace(/\{(letter|code|bits|word|value|parts)\}/g,(_,k)=>k==='parts'?[...(p?.bits||'')].map((b,i,a)=>b==='1'?2**(a.length-1-i):0).filter(Boolean).join(' + '):p?.[k]??'');
@@ -71,18 +73,18 @@ function renderStudent(){
  clearInterval(tickTimer);
  if(!record?.state)return startScreen();
  const r=record.state,s=STEPS[r.step],q=r.q[s.id]||{},m=record.metrics,all=problems(r.attemptId),p=all[s.id];
- let html='<div class="top"><div class="toprow"><b>第 '+(s.ch+1)+' 章 · '+CHAPS[s.ch]+'</b><span>第 '+(r.step+1)+'／'+STEPS.length+' 步</span><span class="pc">'+m.progress+'%</span>'+(r.attempt>1?'<span class="badge">重刷第 '+(r.attempt-1)+' 次</span>':'')+'</div><div class="track"><div class="fill" style="width:'+m.progress+'%"></div></div></div><div class="toolbar"><label for="step-select">回顧已到達步驟</label><select id="step-select">'+STEPS.slice(0,r.maxStep+1).map((x,k)=>'<option value="'+k+'" '+(k===r.step?'selected':'')+'>'+(k+1)+' · '+esc(x.h||'五張卡讀心')+'</option>').join('')+'</select></div>';
+ let html='<div class="top"><div class="toprow"><b>第 '+(s.ch+1)+' 章 · '+CHAPS[s.ch]+'</b><span>第 '+(r.step+1)+'／'+STEPS.length+' 步</span><span class="pc">'+m.progress+'%</span>'+(r.attempt>1?'<span class="badge">第 '+(r.attempt-1)+' 次重練</span>':'')+'</div><div class="track"><div class="fill" style="width:'+m.progress+'%"></div></div></div><div class="toolbar"><label for="step-select">回顧已到達步驟</label><select id="step-select">'+STEPS.slice(0,r.maxStep+1).map((x,k)=>'<option value="'+k+'" '+(k===r.step?'selected':'')+'>'+(k+1)+' · '+esc(x.h||'資料卡任務')+'</option>').join('')+'</select></div>';
  if(returnTo!==null&&(r.step>=returnTo||returnTo>r.maxStep))returnTo=null;
  if(returnTo!==null)html+='<p class="reviewback"><button type="button" id="review-return" class="btn">看完了，回到第 '+(returnTo+1)+' 步「'+esc(STEPS[returnTo].h||'')+'」繼續作答</button></p>';
  html+='<section class="panel"><h2 tabindex="-1" id="step-heading">'+esc(s.h||'想一個 0 到 31 的數字')+'</h2>'+(timedStep(s)?'<p class="timer">本題用時 <b id="qtime">'+fmt(liveMs(r,s))+'</b>'+(q.ok?'（已完成）':'')+'</p>':'')+(s.art?'<img class="banner" src="./images/'+esc(s.art)+'.webp" alt="" width="1024" height="572">':'');
- if(s.t==='final')html+='<img class="finale-art" src="./images/karl-finale.webp" alt="卡爾舉起帽子，帽子裡飛出金色的齒輪和開關；學生拿著五張卡片恍然大悟">';
- if(s.karl)html+=s.t==='final'?'<p class="karl"><b>卡爾：</b>'+esc(s.karl)+'</p>':'<div class="karlrow"><img class="karl-face" src="./images/karl-portrait.webp" alt="" width="72" height="72"><p class="karl"><b>卡爾：</b>'+esc(s.karl)+'</p></div>';
+ if(s.t==='final')html+='<img class="finale-art" src="./images/karl-finale.webp" alt="小波與探險隊整理數位資料的線索">';
+ if(s.guide)html+=s.t==='final'?'<p class="guide"><b>小波：</b>'+esc(s.guide)+'</p>':'<div class="karlrow"><img class="karl-face" src="./images/karl-portrait.webp" alt="" width="72" height="72"><p class="guide"><b>小波：</b>'+esc(s.guide)+'</p></div>';
  if(s.t==='story'&&!s.steps)html+='<p class="meta">準備好就繼續。</p>';
  if(s.t==='cards')html+=cardsHtml();
  if(s.t==='mile')html+='<div class="learned"><h3>你剛剛學會的</h3><ul>'+s.learned.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>'+(s.why?'<p>電腦電路用容易區分的兩種狀態表示 0 與 1，讓資料更容易可靠地保存與處理。</p>':'')+(s.cards?'<h3>對照五張卡</h3><p class="meta">邊看說明邊對照：每張卡的金色數字就是它的位值。</p>'+cardsHtml():'');
  if(s.recap){
   const rounds=[['第一次','trick'],['第二次','trick2']].map(([label,id])=>[label,r.q[id]?.answer]).filter(([,a])=>Array.isArray(a)&&a.length===5);
-  if(rounds.length)html+='<div class="recap"><h3>你的回答和卡爾說出的數字</h3>'+rounds.map(([label,a])=>'<p><b>'+label+'</b>：卡爾說出 <b>'+a.reduce((n,x,k)=>n+(x?2**k:0),0)+'</b></p><div class="bits">'+a.map((x,k)=>'<div class="'+(x?'on':'')+'"><small class="cardname">卡片 '+(k+1)+'</small><b>'+(x?'在':'不在')+'</b></div>').join('')+'</div>').join('')+'</div>';
+  if(rounds.length)html+='<div class="recap"><h3>你回答的線索與小波算出的結果</h3>'+rounds.map(([label,a])=>'<p><b>'+label+'</b>：解碼結果是 <b>'+a.reduce((n,x,k)=>n+(x?2**k:0),0)+'</b></p><div class="bits">'+a.map((x,k)=>'<div class="'+(x?'on':'')+'"><small class="cardname">卡片 '+(k+1)+'</small><b>'+(x?'有':'沒有')+'</b></div>').join('')+'</div>').join('')+'</div>';
  }
  if(s.steps)html+='<ol class="ladder">'+s.steps.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ol>';
  if(s.ask)html+='<p class="ask">'+esc(fill(s.ask,p))+'</p>';
@@ -94,8 +96,8 @@ function renderStudent(){
   if(s.t==='conv'){
    const bits=[...p.bits].map(Number),n=bits.length;
    if(s.raw)html+='<p>把這排二進位換成十進位（速記寫法：('+p.bits+')₂）：</p>';
-   else html+='<p class="ask">換你當讀心師。這位顧客心裡想了一個數字，對'+CN[n]+'張卡一張一張回答「在不在」，答案記成下面這排 1 和 0：<b>1 代表顧客的數字「在」這張卡上</b>，<b>0 代表「不在」</b>。</p><p>每一格下面的小數字，就是那張卡的金色數字（位值）。把寫著 1 的格子的金色數字全部加起來，就是顧客心裡想的數字；寫著 0 的跳過。</p>';
-   if(s.id==='a1')html+='<p class="meta"><b>卡片順序提醒：</b>前面讀心時，卡片由小到大排成 1、2、4、8、16。平常寫數字時，較高的位數在左邊，較低的位數在右邊；所以進入二進位後，我們把順序反過來：卡片 5（16）放最左邊，卡片 1（1）放最右邊。順序雖然改了，規則仍一樣：1（在）就加上該卡片的位值，0（不在）就跳過。</p>';
+   else html+='<p class="ask">輪到你解碼了。這位顧客的數字會出現在 '+CN[n]+' 張卡中的某些卡片上。把每張卡的回答依序記成 1 或 0：<b>有這個數字記 1</b>，<b>沒有記 0</b>。</p><p>格子下方是卡片的位值。將所有標記 1 的位值相加，就能還原顧客的數字；標記 0 的位置不必加。</p>';
+   if(s.id==='a1')html+='<p class="meta"><b>位元排列提醒：</b>卡片位值由小到大是 1、2、4、8、16；寫成二進位時，最大的位值放左側，最小的放右側。因此左到右對應 16、8、4、2、1。每個位置的規則不變：1 代表採用該位值，0 代表略過。</p>';
    html+='<div class="bits">'+bits.map((b,k)=>'<div class="'+(b?'on':'')+'">'+(s.raw?'':'<small class="cardname">卡片 '+(n-k)+'</small>')+'<b>'+b+'</b><small>'+2**(n-1-k)+'</small>'+(s.raw?'':'<em class="inout">'+(b?'在':'不在')+'</em>')+'</div>').join('')+'</div>';
    if(p.n===5)html+='<details class="cardref"><summary>打開五張卡對照（由左到右是卡片 5 到卡片 1，和上面的格子對齊）</summary>'+cardsHtml(true)+'</details>';
   }
@@ -111,9 +113,9 @@ function renderStudent(){
  }
  if(s.t==='trick'){
   const a=q.answer||[];
-  if(!a.length&&!trickReady[s.id])html+='<p class="ask">'+(s.practice?'換一個和剛才不一樣的數字。':'卡爾把五張卡攤在桌上。')+'先看看這五張卡，再在心裡想好一個 0 到 31 的數字，不要說出來。</p>'+cardsHtml()+'<button id="trick-ready" class="btn">想好了，一張一張問我</button>';
-  else if(a.length<5){html+='<p>心裡的數字在這張卡上嗎？（第 '+(a.length+1)+' 張）</p>'+card(CARDS[a.length])+'<div class="yn"><button id="yes">在上面</button><button id="no">不在上面</button></div>';}
-  else html+='<div class="bigreveal"><p>卡爾猜的是</p><div class="n">'+a.reduce((n,x,k)=>n+(x?2**k:0),0)+'</div></div>'+(!q.ok?'<button id="confirm-trick" class="btn">我看過結果了</button>':'<p class="fb yes">讀心活動完成。</p>');
+  if(!a.length&&!trickReady[s.id])html+='<p class="ask">'+(s.practice?'再挑一個不同的數字試試。':'小波準備了五張資料卡。')+'先觀察卡片，再選一個 0 到 31 的數字，看看回答線索能不能讓我們把它解出來。</p>'+cardsHtml()+'<button id="trick-ready" class="btn">準備好了，查看線索</button>';
+  else if(a.length<5){html+='<p>看看小波的解碼線索：這張卡有沒有你的數字？（第 '+(a.length+1)+' 張）</p>'+card(CARDS[a.length])+'<div class="yn"><button id="yes">有這個數字</button><button id="no">沒有</button></div>';}
+  else html+='<div class="bigreveal"><p>線索組合出的數字</p><div class="n">'+a.reduce((n,x,k)=>n+(x?2**k:0),0)+'</div></div>'+(!q.ok?'<button id="confirm-trick" class="btn">我看過結果了</button>':'<p class="fb yes">解碼完成。</p>');
  }
  if(s.t==='pixel'){
   const bits=q.answer||'0'.repeat(64);
@@ -171,12 +173,11 @@ function renderStudent(){
  if($('#sample')){$('#sample').oninput=e=>{$('#sample-value').textContent=e.target.value;drawWave(+e.target.value);};$('#sample').onchange=e=>send('draft',+e.target.value);$('#confirm-wave').onclick=()=>send('submit',+(q.answer||16));drawWave(q.answer||16);}
 }
 async function appendStudentExtras(){
- try{const [members,comments]=await Promise.all([cloud.classes(),cloud.studentComments()]);let html='<section class="panel"><h3>加入班級</h3><input id="join-code" placeholder="輸入老師提供的班級代碼"><button id="join-class" class="plain">加入</button></section>';for(const m of members){const c=m.classes;if(!c)continue;const rows=await cloud.leaderboard(c.id);html+='<section class="panel board-panel"><h3>'+esc(c.name)+' 班級排行榜</h3><div class="scroll"><table class="board"><thead><tr><th>名次</th><th>學生</th><th>分數</th><th>狀態</th></tr></thead><tbody>'+rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.display_name)+'</td><td>'+r.score+'</td><td>'+(r.completed?'完成':'進行中')+'</td></tr>').join('')+'</tbody></table></div></section>';}
+ try{const [members,comments]=await Promise.all([cloud.classes(),cloud.studentComments()]);let html='';for(const m of members){const c=m.classes;if(!c)continue;const rows=await cloud.leaderboard(c.id);html+='<section class="panel board-panel"><h3>'+esc(c.name)+' 班級排行</h3><div class="scroll"><table class="board"><thead><tr><th>名次</th><th>座號</th><th>分數</th><th>狀態</th></tr></thead><tbody>'+rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.display_name)+'</td><td>'+r.score+'</td><td>'+(r.completed?'已完成':'進行中')+'</td></tr>').join('')+'</tbody></table></div></section>';}
  if(comments.length)html+='<section class="panel"><h3>老師給我的評語</h3>'+comments.map(c=>'<p><b>'+esc(c.classes?.name||'班級')+'</b> · '+esc(c.body)+'</p>').join('')+'</section>';
  extrasHTML='<button id="logout" class="plain">登出</button>'+html;
  const old=$('#student-extras');if(old)old.outerHTML='<div id="student-extras">'+extrasHTML+'</div>';else if($('#app'))$('#app').insertAdjacentHTML('beforeend','<div id="student-extras">'+extrasHTML+'</div>');
  $('#logout').onclick=async()=>{await cloud.logout();extrasHTML='';loginScreen();};
- $('#join-class').onclick=async()=>{try{await cloud.joinClass($('#join-code').value);status('已加入班級。');await appendStudentExtras();}catch(e){status('加入班級失敗：'+e.message);}};
  }catch(e){status('班級資料載入失敗：'+e.message);}
 }
 function card(c){return '<div class="cardbox"><div class="hd">卡片 '+(c.i+1)+'</div><div class="nums">'+c.list.map(n=>'<span class="'+(n===c.value?'key':'')+'">'+n+'</span>').join('')+'</div></div>';}
@@ -186,7 +187,7 @@ function drawWave(n){
  g.strokeStyle='#b88b36';g.beginPath();for(let k=0;k<=n;k++){const x=k/n*w;k?g.lineTo(x,f(x)):g.moveTo(x,f(x));}g.stroke();
 }
 $('#reset').onclick=()=>{
- if(!confirm('清除這台電腦上的課程進度，從頭開始？'))return;
+ if(!confirm('清除這個座號的雲端學習紀錄，重新開始？'))return;
  course.reset();record=null;cloud.deleteProgress().then(()=>{startScreen();status('進度已清除。');}).catch(e=>status('無法清除雲端進度：'+e.message));
 };
 if(cloud.configured())boot().catch(e=>{status('雲端服務連線失敗：'+e.message);loginScreen(e.message);});
