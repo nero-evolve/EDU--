@@ -65,10 +65,34 @@ function teacherAnswerDetails(student){
 }
 async function renderTeacher(profile){
  $('#reset').hidden=true;
- const links=await cloud.classes();let html='<div class="panel teacher"><p class="eyebrow">班級管理 · 學習回饋</p><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+'　<button id="logout" class="plain">登出</button></p><h3>建立班級</h3><div class="row"><input id="new-class" placeholder="班級名稱（例如 902）"><input id="new-class-code" inputmode="numeric" maxlength="3" placeholder="三位班級碼"><button id="make-class">新增班級</button></div><p class="meta">學生座號前 3 碼是班級，後 2 碼是座號。例：90230。每次作答與進度會自動同步。老師可展開逐題紀錄並調整核定分數；留空儲存可還原系統分數。</p>';
+ const links=await cloud.classes();
+ const exportRows=new Map();
+ let html='<div class="panel teacher"><p class="eyebrow">班級管理 · 學習回饋</p><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+' <button id="logout" class="plain">登出</button></p><h3>建立班級</h3><div class="row"><input id="new-class" placeholder="班級名稱（例如 902）"><input id="new-class-code" inputmode="numeric" maxlength="3" placeholder="三位班級碼"><button id="make-class">新增班級</button></div><p class="meta">學生座號前 3 碼是班級，後 2 碼是座號，例如 90230。每次作答與進度會自動同步。老師可查看作答紀錄與調整核定分數；留空儲存可恢復系統分數。</p>';
  if(!links.length)html+='<p>目前沒有班級。先輸入班級名稱和三位班級碼。</p>';
- for(const link of links){const c=link.classes;if(!c)continue;const rows=await cloud.teacherClass(c.id);html+='<h2>'+esc(c.name)+' <small>班級碼：'+esc(c.class_code||'尚未設定')+'</small></h2><div class="scroll"><table><thead><tr><th>學生座號</th><th>任務進度</th><th>老師核定分數</th><th>課程狀態</th><th>作答紀錄</th><th>老師回饋</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{},grade=s.teacher_score??x.score??'';return '<tr><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td><div class="grade-editor"><label>老師核定分數<input type="number" min="0" max="100" step="1" inputmode="numeric" data-teacher-score="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" value="'+esc(grade)+'" placeholder="'+(x.score??0)+'"></label><small>系統檢核 '+(x.score??'—')+'／100</small><button data-save-score="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'">儲存</button></div></td><td>'+((s.state?.state?.completed)?'已完成':'進行中')+'</td><td>'+teacherAnswerDetails(s)+'</td><td><textarea data-comment="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" maxlength="2000" placeholder="寫一句鼓勵或下一步建議">'+esc(s.teacher_comment||'')+'</textarea><button data-save-comment="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'">儲存回饋</button></td></tr>';}).join('')+'</tbody></table></div>';}
- html+='</div>';$('#app').innerHTML=html;$('#logout').onclick=async()=>{await cloud.logout();loginScreen();};$('#make-class').onclick=async()=>{try{await cloud.createClass($('#new-class').value,$('#new-class-code').value);await boot();}catch(e){status(e.message);}};document.querySelectorAll('[data-save-score]').forEach(b=>b.onclick=async()=>{const input=document.querySelector('input[data-teacher-score="'+b.dataset.saveScore+'"][data-class="'+b.dataset.class+'"]');const value=input.value.trim()===''?null:Number(input.value);if(value!==null&&(!Number.isFinite(value)||value<0||value>100)){status('分數請輸入 0 到 100。');return;}try{await cloud.setTeacherScore(b.dataset.saveScore,b.dataset.class,value);status(value===null?'已恢復系統檢核分數。':'老師核定分數已儲存。');await boot();}catch(e){status('分數儲存失敗：'+esc(e.message));}});document.querySelectorAll('[data-save-comment]').forEach(b=>b.onclick=async()=>{const f=document.querySelector('textarea[data-comment="'+b.dataset.saveComment+'"][data-class="'+b.dataset.class+'"]');try{await cloud.comment(b.dataset.saveComment,b.dataset.class,f.value);status('評語已儲存。');}catch(e){status(e.message);}});
+ for(const link of links){
+  const c=link.classes;if(!c)continue;
+  const rows=await cloud.teacherClass(c.id);exportRows.set(c.id,{classInfo:c,rows});
+  html+='<h2>'+esc(c.name)+' <small>班級碼：'+esc(c.class_code||'尚未設定')+'</small></h2><button class="export-excel" data-export-class="'+esc(c.id)+'">下載 Excel 分數表</button><div class="scroll"><table><thead><tr><th>學生座號</th><th>任務進度</th><th>老師核定分數</th><th>課程狀態</th><th>作答紀錄</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{},grade=s.teacher_score??x.score??'';return '<tr><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td><div class="grade-editor"><label>老師核定分數<input type="number" min="0" max="100" step="1" inputmode="numeric" data-teacher-score="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" value="'+esc(grade)+'" placeholder="'+(x.score??0)+'"></label><small>系統檢核 '+(x.score??'—')+'／100</small><button data-save-score="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'">儲存</button></div></td><td>'+((s.state?.state?.completed)?'已完成':'進行中')+'</td><td>'+teacherAnswerDetails(s)+'</td></tr>';}).join('')+'</tbody></table></div>';
+ }
+ html+='</div>';$('#app').innerHTML=html;
+ $('#logout').onclick=async()=>{await cloud.logout();loginScreen();};
+ $('#make-class').onclick=async()=>{try{await cloud.createClass($('#new-class').value,$('#new-class-code').value);await boot();}catch(e){status(e.message);}};
+ document.querySelectorAll('[data-export-class]').forEach(b=>b.onclick=async()=>{
+  const item=exportRows.get(b.dataset.exportClass);if(!item)return;
+  try{
+   status('正在準備 Excel 分數表…');
+   const XLSX=await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs');
+   const c=item.classInfo;
+   const aoa=[['班級',c.name],['班級碼',c.class_code||''],['匯出時間',new Date().toLocaleString('zh-TW')],[],['學生座號','任務進度','系統分數','老師核定分數','目前採計分數','課程狀態','完成步驟','總步驟','最後更新時間']];
+   for(const s of item.rows){const m=s.state?.metrics||{};aoa.push([s.display_name,m.progress??0,m.score??'',s.teacher_score??'',s.teacher_score??m.score??'',s.state?.state?.completed?'已完成':'進行中',m.done??0,m.totalSteps??0,s.updated_at?new Date(s.updated_at).toLocaleString('zh-TW'):'']);}
+   const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:14},{wch:12},{wch:12},{wch:16},{wch:16},{wch:12},{wch:12},{wch:12},{wch:22}];
+   if(item.rows.length)ws['!autofilter']={ref:'A5:I'+(5+item.rows.length)};
+   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'學生分數');
+   const safeName=String(c.name||'班級').replace(/[\/:*?"<>|]/g,'_');
+   XLSX.writeFile(wb,(c.class_code||'班級')+'_'+safeName+'_學生分數.xlsx');status('Excel 分數表已下載。');
+  }catch(e){status('Excel 匯出失敗：'+esc(e.message));}
+ });
+ document.querySelectorAll('[data-save-score]').forEach(b=>b.onclick=async()=>{const input=document.querySelector('input[data-teacher-score="'+b.dataset.saveScore+'"][data-class="'+b.dataset.class+'"]');const value=input.value.trim()===''?null:Number(input.value);if(value!==null&&(!Number.isFinite(value)||value<0||value>100)){status('分數請輸入 0 到 100。');return;}try{await cloud.setTeacherScore(b.dataset.saveScore,b.dataset.class,value);status(value===null?'已恢復系統檢核分數。':'老師核定分數已儲存。');await boot();}catch(e){status('分數儲存失敗：'+esc(e.message));}});
 }
 async function boot(){
  const s=await cloud.session();if(!s){loginScreen(passwordRecoveryMode?'重設連結已失效，請重新申請密碼重設。':'');return;}if(passwordRecoveryMode){passwordRecoveryScreen();return;}const p=await cloud.profile();
@@ -225,7 +249,7 @@ function renderStudent(){
  if($('#sample')){$('#sample').oninput=e=>{$('#sample-value').textContent=e.target.value;drawWave(+e.target.value);};$('#sample').onchange=e=>send('draft',+e.target.value);$('#confirm-wave').onclick=()=>send('submit',+(q.answer||16));drawWave(q.answer||16);}
 }
 async function appendStudentExtras(){
- try{const [members,comments]=await Promise.all([cloud.classes(),cloud.studentComments()]);let html='';for(const m of members){const c=m.classes;if(!c)continue;const rows=await cloud.leaderboard(c.id);html+='<section class="panel board-panel"><h3>'+esc(c.name)+' 班級排行</h3><div class="scroll"><table class="board"><thead><tr><th>名次</th><th>座號</th><th>分數</th><th>狀態</th></tr></thead><tbody>'+rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.display_name)+'</td><td>'+r.score+'</td><td>'+(r.completed?'已完成':'進行中')+'</td></tr>').join('')+'</tbody></table></div></section>';}
+ try{const members=await cloud.classes();let html='';for(const m of members){const c=m.classes;if(!c)continue;const rows=await cloud.leaderboard(c.id);html+='<section class="panel board-panel"><h3>'+esc(c.name)+' 班級排行</h3><div class="scroll"><table class="board"><thead><tr><th>名次</th><th>座號</th><th>分數</th><th>狀態</th></tr></thead><tbody>'+rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.display_name)+'</td><td>'+r.score+'</td><td>'+(r.completed?'已完成':'進行中')+'</td></tr>').join('')+'</tbody></table></div></section>';}
  if(comments.length)html+='<section class="panel"><h3>老師給我的評語</h3>'+comments.map(c=>'<p><b>'+esc(c.classes?.name||'班級')+'</b> · '+esc(c.body)+'</p>').join('')+'</section>';
  extrasHTML='<button id="logout" class="plain">登出</button>'+html;
  const old=$('#student-extras');if(old)old.outerHTML='<div id="student-extras">'+extrasHTML+'</div>';else if($('#app'))$('#app').insertAdjacentHTML('beforeend','<div id="student-extras">'+extrasHTML+'</div>');
