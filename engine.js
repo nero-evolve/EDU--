@@ -1,10 +1,8 @@
-// Course rules copied from the KUSU server (services/collab/src/v2c-mindreader.mjs).
-// Grading, hints, timing and scoring are unchanged; progress is kept in this browser's localStorage
-// instead of a database, so there is no login, class leaderboard or teacher review here.
+// Learning flow, chapter checks, answer validation, and cloud-synced progress for Bit Explorers.
 import {STEPS, HEART, problems, hintLimit} from './content.js';
 
-const VERSION = 'mindreader-1';
-const STORE_KEY = 'mindreader-karl-web:v1';
+const VERSION = 'bit-explorers-v4';
+const STORE_KEY = 'bit-explorers-class:v3';
 // A gap between two actions longer than this (student away) counts only this much.
 export const SEGMENT_CAP_MS = 5 * 60 * 1000;
 const fail = code => {throw Object.assign(new Error(code), {code});};
@@ -12,28 +10,12 @@ const newId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() :
     [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''));
 const bounded = (v, n = 500) => typeof v === 'string' && v.length <= n && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(v);
 const actionTypes = new Set(['text','opt','conv','build','trick','pixel','wave']);
-// Multiple choice and practice are timed; the trick, observation activities and story pages are not.
+// Keep elapsed time for teacher context only; it never changes a score.
 export const timed = s => ['opt','text','conv','build'].includes(s.t);
-const activityTypes = ['trick','pixel','wave'];
-// The second reading round is practice: only the first trick, the drawing and the sound are scored activities.
-const scoredActivity = s => activityTypes.includes(s.t) && !s.practice;
-const concept = STEPS.filter(s => ['text','opt','conv'].includes(s.t));
-const builds = STEPS.filter(s => s.t === 'build');
-if (concept.length !== 18 || builds.length !== 5 || STEPS.filter(scoredActivity).length !== 3) throw new Error('COURSE_RUBRIC_MISMATCH');
-// Layout 2 inserted the second reading round and the why page after the first trick; older saved steps from there on move by 2.
-const LAYOUT = 2;
-const INSERTED_AT = STEPS.findIndex(s => s.id === 'trick2');
-if (INSERTED_AT !== 2 || STEPS[INSERTED_AT + 1].id !== 'why') throw new Error('COURSE_LAYOUT_MISMATCH');
-const migrateLayout = r => {
-    if ((r.layout || 1) < LAYOUT) {
-        if (r.step >= INSERTED_AT) r.step += 2;
-        if (r.maxStep >= INSERTED_AT) r.maxStep += 2;
-        r.layout = LAYOUT;
-    }
-    return r;
-};
-const FIRST_TIMED = STEPS.findIndex(timed);
-const blank = () => ({version:VERSION,attemptId:newId(),layout:LAYOUT,attempt:1,step:0,maxStep:0,q:{},completed:false});
+const checkpoints = STEPS.filter(s => s.checkpoint);
+const practices = STEPS.filter(s => actionTypes.has(s.t) && !s.checkpoint);
+const LAYOUT = 4;
+const blank = () => ({version:VERSION,attemptId:newId(),layout:LAYOUT,attempt:1,step:0,maxStep:0,doneSteps:[],q:{},completed:false});
 const qFor = (r, s) => r.q[s.id] ||= {submissions:0,wrongSubmissions:0,hints:0,ok:false,skipped:false};
 const allowedValue = (s, v, r) => {
     if (['text','conv'].includes(s.t)) return bounded(v, 160);
@@ -54,9 +36,8 @@ const correct = (s, v, q, r) => {
     if (s.t === 'wave') return !!(q.low && q.high);
     if (s.t === 'trick') return input.length === 5;
     // Accept commas, spaces or the Chinese separators; a run-on 124816 counts too, so formatting alone is never wrong.
-    if (s.id === 'q1') return ['1,2,4,8,16', '0,1,2,4,8,16'].includes(input.trim().split(/[\s,，、;；]+/u).join(',')) || /^0?124816$/u.test(input.replace(/\s+/gu, ''));
-    if (s.id === 'd2') return input.replace(/\s/g,'') === p.bits;
-    if (s.id === 'd3') return input.trim() === p.word;
+    if (s.id === 'd1') return input.replace(/\s/g,'') === p.bits;
+    if (s.id === 'd2') return input.trim() === p.word;
     return s.chk(input);
 };
 // Add the time spent on the current timed question since the previous action.
@@ -70,20 +51,13 @@ const tick = (r, time) => {
 };
 export const courseScore = r => {
     const count = list => list.filter(s => r.q[s.id]?.ok).length;
-    const concepts = count(concept), binary = count(builds);
-    const activitiesDone = count(STEPS.filter(scoredActivity));
-    const done = STEPS.filter((s,k) => actionTypes.has(s.t) ? r.q[s.id]?.ok : k < r.maxStep || (r.completed && k === STEPS.length-1)).length;
+    const checksDone=count(checkpoints),practiceDone=count(practices);
+    const doneSteps=new Set(r.doneSteps||[]);
+    const done = STEPS.filter((s,k) => actionTypes.has(s.t) ? (r.q[s.id]?.ok||r.q[s.id]?.skipped) : doneSteps.has(k)).length;
     const values = Object.values(r.q);
-    // Every accepted wrong multiple-choice submission costs 1 point. Event IDs keep retries idempotent.
-    const choicePenalty = STEPS.filter(s => s.t === 'opt').reduce((n, s) => {
-        const wrong = r.q[s.id]?.wrongSubmissions;
-        return n + (Number.isSafeInteger(wrong) && wrong > 0 ? wrong : 0);
-    }, 0);
-    // A completed item loses 1 point only when every hint for it was opened.
-    const hintPenalty = [...concept, ...builds].filter(s => r.q[s.id]?.ok && hintLimit(s) > 0 && r.q[s.id].hints >= hintLimit(s)).length;
     const timeMs = STEPS.filter(timed).reduce((n, s) => n + (r.q[s.id]?.activeMs || 0), 0);
-    return {score:Math.max(0,Math.round((70*concepts/18+3*binary+5*activitiesDone-choicePenalty-hintPenalty)*10)/10),
-        concepts,binary,activities:activitiesDone,choicePenalty,hintPenalty,timeMs,done,totalSteps:STEPS.length,
+    return {score:checkpoints.length?Math.round(checksDone/checkpoints.length*100):0,
+        checkpoints:checksDone,checkpointTotal:checkpoints.length,practices:practiceDone,practiceTotal:practices.length,choicePenalty:0,hintPenalty:0,timeMs,done,totalSteps:STEPS.length,
         progress:Math.round(done/STEPS.length*100),reached:r.maxStep+1,
         corrected:values.filter(q=>q.ok && q.wrongSubmissions>0).length,
         submissions:values.reduce((n,q)=>n+q.submissions,0),hints:values.reduce((n,q)=>n+q.hints,0),
@@ -92,10 +66,10 @@ export const courseScore = r => {
 // The first completed attempt is kept as the score; the best one (score, then less time) is kept too.
 const better = (a, b) => !b || a.score > b.score || (a.score === b.score && a.timeMs < b.timeMs);
 const feedback = r => {
-    const m=courseScore(r), pending=STEPS.find(s=>actionTypes.has(s.t)&&!r.q[s.id]?.ok);
-    return {strength:`你已完成 ${m.concepts}／18 題概念與數值題、${m.binary}／5 題位元組合及 ${m.activities}／3 項操作活動。`,
-        advice:pending?`下一步：回到「${pending.h||'五張卡讀心'}」，對照題目和提示再試一次。`:'所有評量項目已完成。可以向同學說明你如何利用位置值換算。',
-        comment:(m.corrected?`有 ${m.corrected} 題在錯誤提交後訂正完成。`:'此分數呈現活動完成成果，不以操作次數或停留時間推論學習態度。')+(m.choicePenalty?`選擇題共錯答 ${m.choicePenalty} 次，每次扣 1 分；其他題目訂正不扣分。`:'選擇題沒有錯答；其他題目訂正不扣分。')+(m.hintPenalty?`有 ${m.hintPenalty} 題把提示全部用完，各扣 1 分。`:'')};
+    const m=courseScore(r), pending=checkpoints.find(s=>!r.q[s.id]?.ok);
+    return {strength:`你已完成 ${m.checkpoints}／${m.checkpointTotal} 個章末檢核。練習答錯和使用提示都不扣分。`,
+        advice:pending?`下一步：完成「${pending.h}」。可以回去看教學，也可以使用提示。`:'六個章末檢核都完成了！你已經走完全部學習任務。',
+        comment:`已完成 ${m.practices}／${m.practiceTotal} 個互動練習；共嘗試 ${m.submissions} 次，使用提示 ${m.hints} 次。這些紀錄用來看學習進度，不用來扣分。`};
 };
 
 // localStorage can be missing or blocked (private windows, strict settings); fall back to this page only.
@@ -104,7 +78,7 @@ const load = () => {
     let saved = null;
     try {
         const value = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-        if (value && Number.isSafeInteger(value.revision) && value.state?.version === VERSION) saved = {...value, state: migrateLayout(value.state), persisted: true};
+        if (value && Number.isSafeInteger(value.revision) && value.state?.version === VERSION) saved = {...value, persisted: true};
     } catch {
         // Unreadable storage behaves like a first visit.
     }
@@ -133,10 +107,11 @@ export const mine = () => {
 
 // Restore an authenticated learner's server copy into this browser before rendering.
 export const restore = row => {
-    if (!row || !Number.isSafeInteger(row.revision) || row.state?.version !== VERSION) return mine();
-    const restored = {revision:row.revision,updatedMs:Date.parse(row.updated_at)||Date.now(),state:migrateLayout(row.state)};
+    if (!row || !Number.isSafeInteger(row.revision)) return mine();
+    const freshCourse=row.state?.version!==VERSION;
+    const restored = {revision:row.revision,updatedMs:freshCourse?Date.now():(Date.parse(row.updated_at)||Date.now()),state:freshCourse?blank():row.state};
     memory = save(restored);
-    return view(memory);
+    return {...view(memory),resetFromPreviousCourse:freshCourse};
 };
 
 export const reset = () => {
@@ -159,18 +134,17 @@ export const event = body => {
     if (!row && body.kind !== 'start') fail('COURSE_NOT_STARTED');
     const r = row ? JSON.parse(JSON.stringify(row.state)) : blank(), time = Date.now();
     if (body.kind === 'start') {
-        if (row || body.step !== 0 || body.value !== null) fail('COURSE_INPUT_INVALID');
+        if (row || body.value !== null) fail('COURSE_INPUT_INVALID');
+        r.step=body.step;
         r.sinceMs = time;
     } else if (body.kind === 'navigate') {
-        if (body.step > r.maxStep || body.value !== null) fail('COURSE_STEP_LOCKED');
+        if (body.value !== null) fail('COURSE_INPUT_INVALID');
         tick(r, time);
         r.step = body.step;
     } else if (body.kind === 'retry') {
-        // Practice again with new numbers and option order; untimed activities already done carry over.
+        // Start a fresh playthrough with new values; previous completion records remain available.
         if (!r.completed || body.step !== r.step || body.value !== null) fail('COURSE_STEP_LOCKED');
-        const carried = Object.fromEntries(STEPS.filter(s => activityTypes.includes(s.t) && r.q[s.id]?.ok).map(s => [s.id, r.q[s.id]]));
-        const next = {...blank(), attempt:(r.attempt||1)+1, retry:true, first:r.first, best:r.best, q:carried,
-            step:FIRST_TIMED, maxStep:STEPS.length-1, sinceMs:time};
+        const next = {...blank(), attempt:(r.attempt||1)+1, first:r.first, best:r.best,sinceMs:time};
         Object.keys(r).forEach(k => delete r[k]);
         Object.assign(r, next);
     } else {
@@ -203,19 +177,23 @@ export const event = body => {
             } else if (body.kind === 'next') {
                 if (q && !q.ok && !q.skipped) fail('COURSE_STEP_LOCKED');
                 if (r.step === STEPS.length - 1) fail('COURSE_INPUT_INVALID');
-                // In a retry, jump straight to the next timed question (or the final page).
-                if (r.retry) {let k = r.step + 1;while (k < STEPS.length - 1 && !timed(STEPS[k])) k++;r.step = k;} else r.step++;
+                r.doneSteps ||= [];
+                if (!r.doneSteps.includes(r.step)) r.doneSteps.push(r.step);
+                r.step++;
             } else if (body.kind === 'finish') {
                 if (r.step !== STEPS.length - 1) fail('COURSE_STEP_LOCKED');
+                if (checkpoints.some(s=>!r.q[s.id]?.ok)) fail('COURSE_CHECKPOINTS_PENDING');
                 if (!r.completed) {
                     r.completed = true;
+                    r.doneSteps ||= [];
+                    if (!r.doneSteps.includes(r.step)) r.doneSteps.push(r.step);
                     const m = courseScore(r), entry = {attempt:r.attempt||1, score:m.score, timeMs:m.timeMs, completedMs:time};
                     if (!r.first) r.first = entry;
                     if (better(entry, r.best)) r.best = entry;
                 }
             }
         }
-        r.maxStep = Math.max(r.maxStep, r.step);
+        if (['next','skip','finish'].includes(body.kind)) r.maxStep = Math.max(r.maxStep, r.step);
     }
     return view(save({revision: body.revision + 1, updatedMs: time, state: r}));
 };

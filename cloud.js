@@ -8,7 +8,7 @@ export async function db(){
 }
 export async function session(){const c=await db();return (await c.auth.getSession()).data.session;}
 export async function login(email,password){const c=await db();const {data,error}=await c.auth.signInWithPassword({email,password});if(error)throw error;return data.session;}
-const seatEmail=seat=>`seat${seat}@students.example.com`;
+const seatEmail=seat=>`seat${seat}@students.bitexplorers.net`;
 const seatPassword=seat=>`seat-login-${seat}-binary-course`;
 export async function loginSeat(seat){
  if(!/^\d{5}$/.test(seat))throw Error('請輸入 5 位數的班級座號，例如 90230。');
@@ -42,5 +42,6 @@ export async function deleteProgress(){const c=await db();const {error}=await c.
 export async function leaderboard(classId){const c=await db();const {data,error}=await c.rpc('class_leaderboard',{target_class:classId});if(error)throw error;return data||[];}
 export async function studentComments(){const c=await db();const {data,error}=await c.from('teacher_comments').select('class_id,body,updated_at,classes(name)').order('updated_at',{ascending:false});if(error)throw error;return data||[];}
 export async function teacherClass(classId){const c=await db();const {data,error}=await c.rpc('teacher_class_progress',{target_class:classId});if(error)throw error;return data||[];}
+export async function setTeacherScore(studentId,classId,score){const c=await db();const {error}=await c.rpc('set_teacher_score',{target_student:studentId,target_class:classId,requested_score:score});if(error)throw error;}
 export async function comment(studentId,classId,body){const c=await db();const {error}=await c.from('teacher_comments').upsert({student_id:studentId,class_id:classId,body,updated_at:new Date().toISOString()},{onConflict:'student_id,class_id'});if(error)throw error;}
 export async function createClass(name,classCode){const c=await db();const {data,error}=await c.rpc('create_class',{class_name:name,requested_class_code:classCode});if(error)throw error;return data;}
