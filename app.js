@@ -41,7 +41,7 @@ function savedStatus(){
  status(record.persisted===false?'這個瀏覽器不允許儲存資料：可以繼續玩，但關閉頁面後進度會消失。':'進度已存在這台電腦的瀏覽器 · '+new Date(record.updatedMs).toLocaleTimeString('zh-TW'));
 }
 function send(kind,value=null,step=record?.state?.step||0){
- try{record=course.event({revision:record?.revision||0,kind,step,value});savedStatus();renderStudent();cloud.saveProgress(record).catch(e=>status('雲端同步失敗：'+esc(e.message)+'（本機進度仍保留）'));}
+ try{record=course.event({revision:record?.revision||0,kind,step,value});savedStatus();renderStudent();const snapshot=record;cloud.saveProgress(snapshot).then(()=>kind==='submit'?appendStudentExtras():null).catch(e=>status('雲端同步失敗：'+esc(e.message)+'（本機進度仍保留）'));}
  catch(e){
   status((errors[e.code]||'這一步沒有完成，請重新載入這一頁再試。')+' ');
   $('#sync').insertAdjacentHTML('beforeend','<button id="reload" class="plain">重新載入</button>');
