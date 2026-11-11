@@ -8,8 +8,14 @@ export async function db(){
 }
 export async function session(){const c=await db();return (await c.auth.getSession()).data.session;}
 export async function login(email,password){const c=await db();const {data,error}=await c.auth.signInWithPassword({email,password});if(error)throw error;return data.session;}
+export async function requestPasswordReset(email,redirectTo){const c=await db();const {error}=await c.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;}
+export async function updatePassword(password){const c=await db();const {error}=await c.auth.updateUser({password});if(error)throw error;}
 const seatEmail=seat=>`seat${seat}@students.bitexplorers.net`;
 const seatPassword=seat=>`seat-login-${seat}-binary-course`;
+export async function joinClassBySeat(seat){
+ if(!/^\d{5}$/.test(seat))throw Error('請輸入 5 位數的班級座號，例如 90230。');
+ const c=await db(),{error}=await c.rpc('join_class_by_code',{requested_class_code:seat.slice(0,3)});if(error)throw error;
+}
 export async function loginSeat(seat){
  if(!/^\d{5}$/.test(seat))throw Error('請輸入 5 位數的班級座號，例如 90230。');
  const c=await db(),email=seatEmail(seat),password=seatPassword(seat);
@@ -24,8 +30,7 @@ export async function loginSeat(seat){
   if(!created.data.session)throw Error('請先在 Supabase 關閉 Email confirmation；座號帳號不會使用電子郵件驗證。');
   data=created.data;error=null;
  }
- const {error:joinError}=await c.rpc('join_class_by_code',{requested_class_code:seat.slice(0,3)});
- if(joinError)throw joinError;
+ await joinClassBySeat(seat);
  return data.session;
 }
 export async function signup(email,password,name,role,classCode){

@@ -5,7 +5,8 @@
 1. 保留 `cloud-config.js` 內現有的 Project URL 與 Publishable key；不可放入 Secret key。
 2. 若目前專案已能讓學生用座號登入並在教師儀表板看到名單，保留既有資料庫設定。這次新增「老師核定分數」與逐題作答紀錄檢視，請在部署新版前，於 Supabase → SQL Editor 執行 `teacher-score-overrides.sql`。不要重跑整份 `supabase.sql`，以免碰觸現有設定。若舊專案還沒有班級碼登入功能，才先依原設定指南安裝 `supabase.sql`。
 3. 到 Authentication → Sign In / Providers → Email，關閉 **Confirm email**。座號帳號使用系統內部建立的登入識別，不會寄送驗證信。
-4. 把最新版本的網站檔案（含 `index.html`、所有 JS、CSS）上傳到 GitHub repository 根目錄，提交後等 Pages 部署完成。下面的「部署到 GitHub Pages」有詳細步驟。
+4. 到 Authentication → URL Configuration，將 **Site URL** 設為 `https://nero-evolve.github.io/EDU--/`，並在 Redirect URLs 加入 `https://nero-evolve.github.io/EDU--/**`。若要在本機測試忘記密碼，再另外加入 `http://localhost:8000/**`。
+5. 把最新版本的網站檔案（含 `index.html`、所有 JS、CSS）上傳到 GitHub repository 根目錄，提交後等 Pages 部署完成。下面的「部署到 GitHub Pages」有詳細步驟。
 
 ### 清除測試班級（選用）
 
@@ -48,5 +49,7 @@ where id = (select id from auth.users where email = 'teacher@example.edu');
 4. 將本資料夾中的網站檔案上傳至 repository 根目錄，保留 `index.html` 在根目錄；若 GitHub 詢問同名檔案覆蓋，確認後提交變更。不要把整個資料夾再包一層上傳。
 5. 在 Commit changes 提交到 `main`。接著選 Actions，查看最新的 `pages build and deployment` 工作流程；出現綠色勾勾後，開啟 Settings → Pages 顯示的網址。
 6. 老師先登入網站建立三位數班級碼，再讓學生輸入五位數座號，例如 90230。教師後台可查看進度、逐題作答、系統分數，並編輯老師核定分數。
+
+教師忘記密碼時，在網站教師登入頁輸入 Email 後按「忘記密碼？」；開啟最新一封重設信，設定新密碼。若信件連到 localhost，表示 Supabase Site URL 尚未改成正式網站網址。
 
 如果 GitHub Actions 顯示佇列或部署失敗，先點最新 workflow 查看錯誤；只有綠色成功狀態才代表新版本已上線。部署後用 Ctrl+F5 更新快取。

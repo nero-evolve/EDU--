@@ -6,6 +6,7 @@ import * as cloud from './cloud.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let record=null,tickTimer=null,extrasHTML='';
+let passwordRecoveryMode=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery';
 const byteTools={},trickReady={};
 let returnTo=null,shownStep=null;
 const BADGES=['數字線索偵探','位元開關手','二進位拼圖師','訊息解碼員','像素創作家','聲音探測員'];
@@ -47,11 +48,16 @@ function send(kind,value=null,step=record?.state?.step||0){
   $('#reload').onclick=()=>location.reload();
  }
 }
+function passwordRecoveryScreen(){
+ $('#reset').hidden=true;$('#app').innerHTML='<section class="panel auth-panel"><p class="eyebrow">教師帳號安全設定</p><h1>設定新密碼</h1><p>請輸入新的教師登入密碼。</p><form id="password-reset-form" class="auth-form"><label>新密碼<input name="password" type="password" minlength="6" autocomplete="new-password" required></label><label>再次輸入新密碼<input name="confirm" type="password" minlength="6" autocomplete="new-password" required></label><p class="err"></p><button class="btn">儲存新密碼</button></form></section>';
+ $('#password-reset-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),password=String(f.get('password')||''),confirmPassword=String(f.get('confirm')||'');if(password!==confirmPassword){e.currentTarget.querySelector('.err').textContent='兩次輸入的密碼不相同。';return;}try{await cloud.updatePassword(password);passwordRecoveryMode=false;history.replaceState(null,'',location.pathname+location.search);status('密碼已更新，正在開啟教師後台…');await boot();}catch(err){e.currentTarget.querySelector('.err').textContent=err.message;}};
+}
 function loginScreen(message='',teacherMode=false){
  $('#reset').hidden=true;
- $('#app').innerHTML='<section class="panel auth-panel"><p class="eyebrow">位元探險隊 · 學習入口</p><h1>'+(teacherMode?'教師登入':'準備開始任務？')+'</h1><p>'+(teacherMode?'請使用教師帳號登入，查看班級進度與回饋。':'輸入 5 位數班級座號即可開始。例：90230 是 902 班 30 號；登入後進度會自動保存。')+'</p><form id="auth-form" class="auth-form">'+(teacherMode?'<label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" required></label>':'<label>班級座號<input name="seat" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="例如 90230" autocomplete="username" required></label>')+'<p class="err">'+esc(message)+'</p><button class="btn">'+(teacherMode?'登入教師後台':'進入任務地圖')+'</button></form><button id="login-mode" class="plain">'+(teacherMode?'返回學生登入':'教師登入')+'</button></section>';
+ $('#app').innerHTML='<section class="panel auth-panel"><p class="eyebrow">位元探險隊 · 學習入口</p><h1>'+(teacherMode?'教師登入':'準備開始任務？')+'</h1><p>'+(teacherMode?'請使用教師帳號登入，查看班級進度與回饋。':'輸入 5 位數班級座號即可開始。例：90230 是 902 班 30 號；登入後進度會自動保存。')+'</p><form id="auth-form" class="auth-form">'+(teacherMode?'<label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" required></label><button id="forgot-password" type="button" class="plain">忘記密碼？</button>':'<label>班級座號<input name="seat" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="例如 90230" autocomplete="username" required></label>')+'<p class="err">'+esc(message)+'</p><button class="btn">'+(teacherMode?'登入教師後台':'進入任務地圖')+'</button></form><button id="login-mode" class="plain">'+(teacherMode?'返回學生登入':'教師登入')+'</button></section>';
  $('#login-mode').onclick=()=>loginScreen('',!teacherMode);
- $('#auth-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{status('正在登入…');if(teacherMode)await cloud.login(f.get('email'),f.get('password'));else await cloud.loginSeat(String(f.get('seat')||'').trim());await boot();}catch(err){loginScreen(err.message,teacherMode);}};
+ if($('#forgot-password'))$('#forgot-password').onclick=async()=>{const email=$('#auth-form [name=email]').value.trim();if(!email){status('請先輸入教師 Email，再按忘記密碼。');return;}try{await cloud.requestPasswordReset(email,location.origin+location.pathname);status('已寄出密碼重設信，請開啟最新一封信。');}catch(err){status('無法寄出重設信：'+err.message);}};
+ $('#auth-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{status('正在登入…');if(teacherMode)await cloud.login(f.get('email'),f.get('password'));else await cloud.loginSeat(String(f.get('seat')||'').trim());await boot();}catch(err){const seat=String(f.get('seat')||'').trim();const message=!teacherMode&&/class not found/i.test(err.message)?'找不到 '+seat.slice(0,3)+' 班。請老師先在教師後台建立班級；建立後重新登入即可。':err.message;loginScreen(message,teacherMode);}};
 }
 function teacherAnswerDetails(student){
  const r=student.state?.state||{},current=STEPS[r.step],items=STEPS.map((step,k)=>{const q=r.q?.[step.id];if(!q)return '';let answer=q.answer;if(Array.isArray(answer))answer=answer.map(v=>typeof v==='boolean'?(v?'有':'沒有'):v).join(' / ');else if(answer===undefined||answer===null)answer='尚未作答';else answer=String(answer);if(answer.length>120)answer=answer.slice(0,120)+'…';return '<li class="'+(q.ok?'answer-ok':'')+'"><b>'+(q.ok?'✓':'·')+' '+esc(step.h||('第 '+(k+1)+' 步'))+'</b><span>答案：'+esc(answer)+' · 作答 '+(q.submissions||0)+' 次 · 提示 '+(q.hints||0)+' 次</span></li>';}).filter(Boolean).join('');
@@ -65,9 +71,10 @@ async function renderTeacher(profile){
  html+='</div>';$('#app').innerHTML=html;$('#logout').onclick=async()=>{await cloud.logout();loginScreen();};$('#make-class').onclick=async()=>{try{await cloud.createClass($('#new-class').value,$('#new-class-code').value);await boot();}catch(e){status(e.message);}};document.querySelectorAll('[data-save-score]').forEach(b=>b.onclick=async()=>{const input=document.querySelector('input[data-teacher-score="'+b.dataset.saveScore+'"][data-class="'+b.dataset.class+'"]');const value=input.value.trim()===''?null:Number(input.value);if(value!==null&&(!Number.isFinite(value)||value<0||value>100)){status('分數請輸入 0 到 100。');return;}try{await cloud.setTeacherScore(b.dataset.saveScore,b.dataset.class,value);status(value===null?'已恢復系統檢核分數。':'老師核定分數已儲存。');await boot();}catch(e){status('分數儲存失敗：'+esc(e.message));}});document.querySelectorAll('[data-save-comment]').forEach(b=>b.onclick=async()=>{const f=document.querySelector('textarea[data-comment="'+b.dataset.saveComment+'"][data-class="'+b.dataset.class+'"]');try{await cloud.comment(b.dataset.saveComment,b.dataset.class,f.value);status('評語已儲存。');}catch(e){status(e.message);}});
 }
 async function boot(){
- const s=await cloud.session();if(!s){loginScreen();return;}const p=await cloud.profile();
+ const s=await cloud.session();if(!s){loginScreen(passwordRecoveryMode?'重設連結已失效，請重新申請密碼重設。':'');return;}if(passwordRecoveryMode){passwordRecoveryScreen();return;}const p=await cloud.profile();
  if(p.role==='teacher'){await renderTeacher(p);status('教師帳號已登入。');return;}
- if(!s.user?.email?.endsWith('@students.bitexplorers.net')){await cloud.logout();loginScreen('學生請使用五位數班級座號登入。');return;}
+ const seat=s.user?.email?.match(/^seat(\d{5})@students\.bitexplorers\.net$/i)?.[1];if(!seat){await cloud.logout();loginScreen('學生請使用五位數班級座號登入。');return;}
+ try{await cloud.joinClassBySeat(seat);}catch(e){const message=/class not found/i.test(e.message)?'找不到 '+seat.slice(0,3)+' 班。請老師先在教師後台建立班級；建立後重新整理或重新登入即可。':e.message;loginScreen(message);return;}
  const remote=await cloud.loadProgress();if(remote){record=course.restore(remote);if(record.resetFromPreviousCourse){try{await cloud.saveProgress(record);status('新版課程已準備好，從第 1 關開始。');}catch(e){status('無法更新新版進度：'+esc(e.message)+'；你仍可繼續學習。');}}else savedStatus();renderStudent();}else{course.reset();record=course.mine();status('進度尚未開始；完成第一個步驟後會同步到雲端。');startScreen();}await appendStudentExtras();
 }
 function startScreen(){
