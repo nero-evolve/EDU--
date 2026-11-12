@@ -139,7 +139,7 @@ function bitPuzzle(p,q){
 function selectedConversionSum(p,q){return Number(q.answer||0)&parseInt(p.bits,2);}
 function conversionPuzzle(p,q){
  const sum=selectedConversionSum(p,q),included=sum.toString(2).padStart(p.n,'0').slice(-p.n),bits=[...p.bits];
- return '<div class="build-numbers"><div class="build-target"><span>題目給的二進位</span><b class="binary-pattern">'+p.bits+'</b></div><div class="build-current" aria-live="polite"><span>目前換算出的十進位</span><b id="conv-sum">'+sum+'</b></div></div><p>點一下題目中每個 1，把它的位置值加進上方總和；0 不用加。</p><div class="bit-board" style="--bit-count:'+p.n+'" aria-label="二進位位置和值">'+bits.map((bit,k)=>{const power=p.n-k-1,value=2**power,selected=included[k]==='1';return '<div class="bit-place"><span>2<sup>'+power+'</sup> = '+value+'</span>'+(bit==='1'?'<button type="button" data-conv-bit="'+value+'" class="bit-toggle conv-toggle '+(selected?'on':'')+'" aria-label="位元 1，位置值 '+value+'，'+(selected?'已加入總和':'點選加入總和')+'" aria-pressed="'+selected+'" '+(q.ok?'disabled':'')+'>1</button>':'<div class="bit-static-zero" aria-label="位元 0，不加入">0</div>')+'</div>';}).join('')+'</div><button type="button" id="clear-conv" class="plain" '+(q.ok?'disabled':'')+'>清除重算</button><button type="button" id="confirm-conv" class="btn" '+(q.ok?'disabled':'')+'>檢查答案</button>';
+ return '<div class="build-numbers"><div class="build-target"><span>題目給的二進位</span><b class="binary-pattern">'+p.bits+'</b></div><div class="build-current" aria-live="polite"><span>目前換算出的十進位</span><b id="conv-sum">'+sum+'</b></div></div><p>每一格都可以點，0 和 1 會互相切換；上方總和也會跟著更新。</p><div class="bit-board" style="--bit-count:'+p.n+'" aria-label="二進位位置值">'+bits.map((bit,k)=>{const power=p.n-k-1,value=2**power,selected=included[k]==='1';return '<div class="bit-place"><span>2<sup>'+power+'</sup> = '+value+'</span><button type="button" data-conv-bit="'+value+'" class="bit-toggle conv-toggle '+(selected?'on':'')+'" aria-label="位置值 '+value+'，目前是 '+(selected?'1':'0')+'，點選切換" aria-pressed="'+selected+'" '+(q.ok?'disabled':'')+'>'+(selected?'1':'0')+'</button></div>';}).join('')+'</div><button type="button" id="clear-conv" class="plain" '+(q.ok?'disabled':'')+'>清除重選</button><button type="button" id="confirm-conv" class="btn" '+(q.ok?'disabled':'')+'>檢查答案</button>';
 }
 function renderStudent(){
  showStudentHeader();
@@ -270,7 +270,7 @@ function drawWave(n){
 }
 $('#reset').onclick=()=>{
  if(!confirm('清除這個座號的雲端學習紀錄，重新開始？'))return;
- course.reset();record=null;cloud.deleteProgress().then(()=>{startScreen();status('進度已清除。');}).catch(e=>status('無法清除雲端進度：'+e.message));
+ course.reset();record=null;cloud.deleteProgress().then(async()=>{extrasHTML='';startScreen();await appendStudentExtras();status('進度已清除，排行榜已更新。');}).catch(e=>status('無法清除雲端進度：'+e.message));
 };
 if(cloud.configured())boot().catch(e=>{status('雲端服務連線失敗：'+e.message);loginScreen(e.message);});
 else loginScreen('請先在 cloud-config.js 填入 Supabase URL 與 anon key。');
