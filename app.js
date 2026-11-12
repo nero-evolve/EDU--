@@ -115,7 +115,7 @@ const liveMs=(r,s)=>{const q=r.q[s.id]||{};return (q.activeMs||0)+(q.ok||!Number
 function scorePanel(v){
  const m=v.metrics,f=v.feedback,attempt=v.state?.attempt||1;
  if(!m)return '';
- return '<div class="panel learning-record"><p class="eyebrow">學習紀錄</p><h3>我的任務進度</h3><p class="grade">'+m.score+'／100</p><p>已完成 '+m.checkpoints+'／'+m.checkpointTotal+' 個章末檢核。'+(attempt>1?'這是第 '+attempt+' 次練習。':'')+'</p><div class="checkpoint-strip">'+Array.from({length:m.checkpointTotal},(_,i)=>'<span class="'+(i<m.checkpoints?'done':'')+'">'+(i<m.checkpoints?'✓':i+1)+'</span>').join('')+'</div><p>完成 '+m.done+'／'+m.totalSteps+' 個步驟（'+m.progress+'%） · 已試 '+m.submissions+' 次 · 看過 '+m.hints+' 個提示</p><details><summary>分數怎麼算？</summary><p>六個章末檢核平均計分，每關約 16.7 分。練習答錯、使用提示和重試都不扣分。老師可以在後台查看進度和檢核分數。</p><p>你已完成 '+m.practices+'／'+m.practiceTotal+' 個互動練習。略過 '+m.skipped+' 個活動。</p></details><div class="report"><b>學習回饋</b><p>'+esc(f.strength)+'</p><p>'+esc(f.advice)+'</p><p>'+esc(f.comment)+'</p></div></div>';
+ return '<div class="student-dashboard-grid"><div class="panel learning-record"><p class="eyebrow">學習紀錄</p><h3>我的任務進度</h3><p class="grade">'+m.score+'／100</p><p>已完成 '+m.checkpoints+'／'+m.checkpointTotal+' 個章末檢核。'+(attempt>1?'這是第 '+attempt+' 次練習。':'')+'</p><div class="checkpoint-strip">'+Array.from({length:m.checkpointTotal},(_,i)=>'<span class="'+(i<m.checkpoints?'done':'')+'">'+(i<m.checkpoints?'✓':i+1)+'</span>').join('')+'</div><p>完成 '+m.done+'／'+m.totalSteps+' 個步驟（'+m.progress+'%） · 已試 '+m.submissions+' 次 · 看過 '+m.hints+' 個提示</p><details><summary>分數怎麼算？</summary><p>六個章末檢核平均計分，每關約 16.7 分。練習答錯、使用提示和重試都不扣分。老師可以在後台查看進度和檢核分數。</p><p>你已完成 '+m.practices+'／'+m.practiceTotal+' 個互動練習。略過 '+m.skipped+' 個活動。</p></details><div class="report"><b>學習回饋</b><p>'+esc(f.strength)+'</p><p>'+esc(f.advice)+'</p><p>'+esc(f.comment)+'</p></div></div><div id="student-extras" class="student-rank-column"></div></div>';
 }
 const isAction=s=>['text','opt','conv','build','trick','pixel','wave'].includes(s.t);
 const fill=(text,p)=>String(text||'').replace(/\{(letter|code|bits|word|value|parts)\}/g,(_,k)=>k==='parts'?[...(p?.bits||'')].map((b,i,a)=>b==='1'?2**(a.length-1-i):0).filter(Boolean).join(' + '):p?.[k]??'');
@@ -249,11 +249,17 @@ function renderStudent(){
  if($('#sample')){$('#sample').oninput=e=>{$('#sample-value').textContent=e.target.value;drawWave(+e.target.value);};$('#sample').onchange=e=>send('draft',+e.target.value);$('#confirm-wave').onclick=()=>send('submit',+(q.answer||16));drawWave(q.answer||16);}
 }
 async function appendStudentExtras(){
- try{const members=await cloud.classes();let html='';for(const m of members){const c=m.classes;if(!c)continue;const rows=await cloud.leaderboard(c.id);html+='<section class="panel board-panel"><h3>'+esc(c.name)+' 班級排行</h3><div class="scroll"><table class="board"><thead><tr><th>名次</th><th>座號</th><th>分數</th><th>狀態</th></tr></thead><tbody>'+rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.display_name)+'</td><td>'+r.score+'</td><td>'+(r.completed?'已完成':'進行中')+'</td></tr>').join('')+'</tbody></table></div></section>';}
- if(comments.length)html+='<section class="panel"><h3>老師給我的評語</h3>'+comments.map(c=>'<p><b>'+esc(c.classes?.name||'班級')+'</b> · '+esc(c.body)+'</p>').join('')+'</section>';
- extrasHTML='<button id="logout" class="plain">登出</button>'+html;
- const old=$('#student-extras');if(old)old.outerHTML='<div id="student-extras">'+extrasHTML+'</div>';else if($('#app'))$('#app').insertAdjacentHTML('beforeend','<div id="student-extras">'+extrasHTML+'</div>');
- $('#logout').onclick=async()=>{await cloud.logout();extrasHTML='';loginScreen();};
+ try{
+  const members=await cloud.classes();let html='<div class="student-rank-actions"><button id="logout" class="plain">登出</button></div>';
+  for(const m of members){
+   const c=m.classes;if(!c)continue;
+   const rows=await cloud.leaderboard(c.id),active=rows.filter(r=>r.updated_at&&!r.completed).length,completed=rows.filter(r=>r.completed).length;
+   html+='<section class="panel board-panel"><h3>'+esc(c.name)+' 班級排行</h3><div class="board-stats"><div><b>'+active+'</b><span>進行中</span></div><div><b>'+completed+'</b><span>已完成</span></div><div><b>'+rows.length+'</b><span>班級人數</span></div></div><p class="meta board-note">進行中表示已開始學習、尚未完成；這不是即時在線人數。</p><div class="scroll"><table class="board"><thead><tr><th>名次</th><th>座號</th><th>分數</th><th>狀態</th></tr></thead><tbody>'+rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.display_name)+'</td><td>'+r.score+'</td><td>'+(r.completed?'已完成':r.updated_at?'進行中':'尚未開始')+'</td></tr>').join('')+'</tbody></table></div></section>';
+  }
+  const old=$('#student-extras');
+  if(old)old.innerHTML=html;
+  else if($('#app'))$('#app').insertAdjacentHTML('beforeend','<div id="student-extras" class="student-rank-column standalone">'+html+'</div>');
+  $('#logout').onclick=async()=>{await cloud.logout();extrasHTML='';loginScreen();};
  }catch(e){status('班級資料載入失敗：'+e.message);}
 }
 function card(c){return '<div class="cardbox"><div class="hd">卡片 '+(c.i+1)+'</div><div class="nums">'+c.list.map(n=>'<span class="'+(n===c.value?'key':'')+'">'+n+'</span>').join('')+'</div></div>';}
