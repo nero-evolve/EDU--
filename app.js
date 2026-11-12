@@ -5,7 +5,7 @@ import * as course from './engine.js';
 import * as cloud from './cloud.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let record=null,tickTimer=null,extrasHTML='';
+let record=null,tickTimer=null,extrasHTML='',leaderboardTimer=null,leaderboardBusy=false;
 let passwordRecoveryMode=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery';
 const byteTools={},trickReady={};
 let returnTo=null,shownStep=null;
@@ -54,6 +54,7 @@ function passwordRecoveryScreen(){
 }
 function loginScreen(message='',teacherMode=false){
  $('#reset').hidden=true;
+ $('#student-logout').hidden=true;clearInterval(leaderboardTimer);leaderboardTimer=null;
  $('#app').innerHTML='<section class="panel auth-panel"><p class="eyebrow">位元探險隊 · 學習入口</p><h1>'+(teacherMode?'教師登入':'準備開始任務？')+'</h1><p>'+(teacherMode?'請使用教師帳號登入，查看班級進度與回饋。':'輸入 5 位數班級座號即可開始。例：90230 是 902 班 30 號；登入後進度會自動保存。')+'</p><form id="auth-form" class="auth-form">'+(teacherMode?'<label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" required></label><button id="forgot-password" type="button" class="plain">忘記密碼？</button>':'<label>班級座號<input name="seat" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="例如 90230" autocomplete="username" required></label>')+'<p class="err">'+esc(message)+'</p><button class="btn">'+(teacherMode?'登入教師後台':'進入任務地圖')+'</button></form><button id="login-mode" class="plain">'+(teacherMode?'返回學生登入':'教師登入')+'</button></section>';
  $('#login-mode').onclick=()=>loginScreen('',!teacherMode);
  if($('#forgot-password'))$('#forgot-password').onclick=async()=>{const email=$('#auth-form [name=email]').value.trim();if(!email){status('請先輸入教師 Email，再按忘記密碼。');return;}try{await cloud.requestPasswordReset(email,location.origin+location.pathname);status('已寄出密碼重設信，請開啟最新一封信。');}catch(err){status('無法寄出重設信：'+err.message);}};
@@ -250,6 +251,7 @@ function renderStudent(){
  if($('#sample')){$('#sample').oninput=e=>{$('#sample-value').textContent=e.target.value;drawWave(+e.target.value);};$('#sample').onchange=e=>send('draft',+e.target.value);$('#confirm-wave').onclick=()=>send('submit',+(q.answer||16));drawWave(q.answer||16);}
 }
 async function appendStudentExtras(){
+ if(leaderboardBusy)return;leaderboardBusy=true;
  try{
   const members=await cloud.classes();let html='';
   for(const m of members){
@@ -260,7 +262,9 @@ async function appendStudentExtras(){
   extrasHTML=html;const old=$('#student-extras');
   if(old)old.innerHTML=html;
   else if($('#app'))$('#app').insertAdjacentHTML('beforeend','<div id="student-extras" class="student-rank-column standalone">'+html+'</div>');
+  if(!leaderboardTimer)leaderboardTimer=setInterval(()=>{if(!document.hidden)appendStudentExtras();},15000);
  }catch(e){status('班級資料載入失敗：'+e.message);}
+ finally{leaderboardBusy=false;}
 }
 function card(c){return '<div class="cardbox"><div class="hd">卡片 '+(c.i+1)+'</div><div class="nums">'+c.list.map(n=>'<span class="'+(n===c.value?'key':'')+'">'+n+'</span>').join('')+'</div></div>';}
 function drawWave(n){
