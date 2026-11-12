@@ -64,7 +64,7 @@ function teacherAnswerDetails(student){
  const place=current?('第 '+(current.ch+1)+' 章「'+CHAPS[current.ch]+'」 · '+(current.h||'任務')):'尚未開始';return '<details class="student-record-details"><summary>查看作答紀錄 · '+(r.maxStep+1)+'／'+STEPS.length+' 步</summary><p class="meta">目前進度：'+esc(place)+'；完成步驟 '+(student.state?.metrics?.done||0)+' 步。</p><ol>'+(items||'<li>尚無作答紀錄</li>')+'</ol></details>';
 }
 async function renderTeacher(profile){
- $('#reset').hidden=true;
+ $('#reset').hidden=true;$('#student-logout').hidden=true;
  const links=await cloud.classes();
  const exportRows=new Map();
  let html='<div class="panel teacher"><p class="eyebrow">班級管理 · 學習回饋</p><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+' <button id="logout" class="plain">登出</button></p><h3>建立班級</h3><div class="row"><input id="new-class" placeholder="班級名稱（例如 902）"><input id="new-class-code" inputmode="numeric" maxlength="3" placeholder="三位班級碼"><button id="make-class">新增班級</button></div><p class="meta">學生座號前 3 碼是班級，後 2 碼是座號，例如 90230。每次作答與進度會自動同步。老師可查看作答紀錄與調整核定分數；留空儲存可恢復系統分數。</p>';
@@ -101,7 +101,9 @@ async function boot(){
  try{await cloud.joinClassBySeat(seat);}catch(e){const message=/class not found/i.test(e.message)?'找不到 '+seat.slice(0,3)+' 班。請老師先在教師後台建立班級；建立後重新整理或重新登入即可。':e.message;loginScreen(message);return;}
  const remote=await cloud.loadProgress();if(remote){record=course.restore(remote);if(record.resetFromPreviousCourse){try{await cloud.saveProgress(record);status('新版課程已準備好，從第 1 關開始。');}catch(e){status('無法更新新版進度：'+esc(e.message)+'；你仍可繼續學習。');}}else savedStatus();renderStudent();}else{course.reset();record=course.mine();status('進度尚未開始；完成第一個步驟後會同步到雲端。');startScreen();}await appendStudentExtras();
 }
+function showStudentHeader(){$('#reset').hidden=false;const b=$('#student-logout');if(b){b.hidden=false;b.onclick=async()=>{await cloud.logout();extrasHTML='';loginScreen();};}}
 function startScreen(){
+ showStudentHeader();
  clearInterval(tickTimer);shownStep=null;
  const captions=['先玩遊戲，再找出卡片規律','從開關和短位元開始學','先用少量位置，再慢慢增加','用字母練習資料編碼','把位元畫成像素圖片','觀察聲音怎麼變成資料'];
  const icons=['🔎','💡','🧩','🔐','🎨','🎧'],zones=['線索林地','開關基地','積木高原','暗號城堡','像素工坊','聲音修復站'];
@@ -140,6 +142,7 @@ function conversionPuzzle(p,q){
  return '<div class="build-numbers"><div class="build-target"><span>題目給的二進位</span><b class="binary-pattern">'+p.bits+'</b></div><div class="build-current" aria-live="polite"><span>目前換算出的十進位</span><b id="conv-sum">'+sum+'</b></div></div><p>點一下題目中每個 1，把它的位置值加進上方總和；0 不用加。</p><div class="bit-board" style="--bit-count:'+p.n+'" aria-label="二進位位置和值">'+bits.map((bit,k)=>{const power=p.n-k-1,value=2**power,selected=included[k]==='1';return '<div class="bit-place"><span>2<sup>'+power+'</sup> = '+value+'</span>'+(bit==='1'?'<button type="button" data-conv-bit="'+value+'" class="bit-toggle conv-toggle '+(selected?'on':'')+'" aria-label="位元 1，位置值 '+value+'，'+(selected?'已加入總和':'點選加入總和')+'" aria-pressed="'+selected+'" '+(q.ok?'disabled':'')+'>1</button>':'<div class="bit-static-zero" aria-label="位元 0，不加入">0</div>')+'</div>';}).join('')+'</div><button type="button" id="clear-conv" class="plain" '+(q.ok?'disabled':'')+'>清除重算</button><button type="button" id="confirm-conv" class="btn" '+(q.ok?'disabled':'')+'>檢查答案</button>';
 }
 function renderStudent(){
+ showStudentHeader();
  $('#reset').hidden=false;
  clearInterval(tickTimer);
  if(!record?.state)return startScreen();
@@ -250,7 +253,7 @@ function renderStudent(){
 }
 async function appendStudentExtras(){
  try{
-  const members=await cloud.classes();let html='<div class="student-rank-actions"><button id="logout" class="plain">登出</button></div>';
+  const members=await cloud.classes();let html='';
   for(const m of members){
    const c=m.classes;if(!c)continue;
    const rows=await cloud.leaderboard(c.id),active=rows.filter(r=>r.updated_at&&!r.completed).length,completed=rows.filter(r=>r.completed).length;
@@ -259,7 +262,6 @@ async function appendStudentExtras(){
   const old=$('#student-extras');
   if(old)old.innerHTML=html;
   else if($('#app'))$('#app').insertAdjacentHTML('beforeend','<div id="student-extras" class="student-rank-column standalone">'+html+'</div>');
-  $('#logout').onclick=async()=>{await cloud.logout();extrasHTML='';loginScreen();};
  }catch(e){status('班級資料載入失敗：'+e.message);}
 }
 function card(c){return '<div class="cardbox"><div class="hd">卡片 '+(c.i+1)+'</div><div class="nums">'+c.list.map(n=>'<span class="'+(n===c.value?'key':'')+'">'+n+'</span>').join('')+'</div></div>';}
