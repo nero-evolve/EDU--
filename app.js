@@ -2,7 +2,7 @@
 import {STEPS,CARDS,HEART,CHAPS,CHAPTER_STARTS,problems,optionOrder,hintLimit} from './content.js';
 import {chapterVisual} from './visuals.js';
 import * as course from './engine.js';
-import * as cloud from './cloud.js';
+import * as cloud from './cloud.js?v=20261113-remove-feedback-v2';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let record=null,tickTimer=null,extrasHTML='',leaderboardTimer=null,leaderboardBusy=false;
@@ -82,7 +82,7 @@ async function renderTeacher(profile){
   const classId=button.dataset.removeClass,selected=[...document.querySelectorAll('input[data-select-student][data-class="'+classId+'"]:checked')].map(box=>box.dataset.studentId);
   if(!selected.length){status('請先勾選要移除的學生。');return;}
   if(!confirm('確定將 '+selected.length+' 位學生從「'+button.dataset.className+'」名單移除？帳號與學習進度會保留；之後以座號登入仍可能重新加入。'))return;
-  try{const removed=await cloud.removeClassMembers(classId,selected);status('已將 '+removed+' 位學生從本班名單移除。');await boot();}catch(e){status('移除學生失敗：'+e.message);}
+  try{const removed=Number(await cloud.removeClassMembers(classId,selected))||0;if(!removed){const message='沒有移除任何學生。請確認 Supabase 已執行 teacher-student-management.sql，且所選學生仍在這個班級名單中。';status(message);alert(message);return;}status('已將 '+removed+' 位學生從本班名單移除。');alert('已成功移除 '+removed+' 位學生。');await boot();}catch(e){const message='移除學生失敗：'+(e?.message||String(e));status(message);alert(message+'\n\n請確認 Supabase SQL Editor 已執行 teacher-student-management.sql。');}
  });
  document.querySelectorAll('[data-export-class]').forEach(b=>b.onclick=async()=>{
   const item=exportRows.get(b.dataset.exportClass);if(!item)return;
