@@ -3,7 +3,7 @@
 ## 更新已有 Supabase 專案
 
 1. 保留 `cloud-config.js` 內現有的 Project URL 與 Publishable key；不可放入 Secret key。
-2. 若目前專案已能讓學生用座號登入並在教師儀表板看到名單，保留既有資料庫設定。這次新增「老師核定分數」與逐題作答紀錄檢視，請在部署新版前，於 Supabase → SQL Editor 執行 `teacher-score-overrides.sql`。不要重跑整份 `supabase.sql`，以免碰觸現有設定。若舊專案還沒有班級碼登入功能，才先依原設定指南安裝 `supabase.sql`。
+2. 若目前專案已能讓學生用座號登入並在教師儀表板看到名單，保留既有資料庫設定。新版的「從班級移除學生」功能需要在部署前，於 Supabase → SQL Editor 執行 `teacher-student-management.sql`。不要重跑整份 `supabase.sql`，以免碰觸現有設定。若舊專案還沒有班級碼登入功能，才先依原設定指南安裝 `supabase.sql`。
 3. 到 Authentication → Sign In / Providers → Email，關閉 **Confirm email**。座號帳號使用系統內部建立的登入識別，不會寄送驗證信。
 4. 到 Authentication → URL Configuration，將 **Site URL** 設為 `https://nero-evolve.github.io/EDU--/`，並在 Redirect URLs 加入 `https://nero-evolve.github.io/EDU--/**`。若要在本機測試忘記密碼，再另外加入 `http://localhost:8000/**`。
 5. 把最新版本的網站檔案（含 `index.html`、所有 JS、CSS）上傳到 GitHub repository 根目錄，提交後等 Pages 部署完成。下面的「部署到 GitHub Pages」有詳細步驟。
@@ -38,17 +38,18 @@ where id = (select id from auth.users where email = 'teacher@example.edu');
 - 學生座號只作為識別碼，系統以座號衍生內部登入憑證；不會要求學生輸入 Email 或密碼。
 - 依管理者選擇的免密碼方式，知道座號的人可能以該座號登入，因此不適合保存敏感個資或用作高風險正式測驗。
 - 教師端只會列出該教師已建立班級中的學生；每次作答、提示、目前步驟和學習進度都會同步到 Supabase。教師可展開作答紀錄查看逐題答案，並儲存 0–100 的「老師核定分數」；留空並儲存會回復系統檢核分數。
+- 教師可勾選學生並從班級名單移除；這不會刪除學生登入帳號或既有學習紀錄。學生之後若再次用座號登入，仍可能自動加入班級。
 - 新版課程的教學圖解由 `visuals.js` 以 SVG 繪製；原 `images/` 資料夾中的圖片不會用於新版課程畫面。
 - 章末檢核分數由六關檢核題平均計算。練習答錯、使用提示與重試都不扣分；老師仍可查看完成度、檢核分數和評語。
 
 ## 部署到 GitHub Pages
 
 1. 先確認 `cloud-config.js` 使用的是 Supabase Project URL 和 Publishable/anon key，不可放 Secret/service-role key。
-2. 先在 Supabase SQL Editor 執行 `teacher-score-overrides.sql`，完成教師核定分數資料表與權限設定。
+2. 先在 Supabase SQL Editor 執行 `teacher-student-management.sql`，建立「從班級名單移除所選學生」功能所需的安全資料庫函式。舊的 `teacher-score-overrides.sql` 資料表可保留，但新版教師介面不再使用老師核定分數。
 3. 開啟你的 GitHub 專案 `nero-evolve/EDU--`，選 Code → Add file → Upload files。
 4. 將本資料夾中的網站檔案上傳至 repository 根目錄，保留 `index.html` 在根目錄；若 GitHub 詢問同名檔案覆蓋，確認後提交變更。不要把整個資料夾再包一層上傳。
 5. 在 Commit changes 提交到 `main`。接著選 Actions，查看最新的 `pages build and deployment` 工作流程；出現綠色勾勾後，開啟 Settings → Pages 顯示的網址。
-6. 老師先登入網站建立三位數班級碼，再讓學生輸入五位數座號，例如 90230。教師後台可查看進度、逐題作答、系統分數，並編輯老師核定分數。
+6. 老師先登入網站建立三位數班級碼，再讓學生輸入五位數座號，例如 90230。教師後台可查看進度、逐題作答與系統檢核分數，也可下載分數表或將學生移出班級名單。
 
 教師忘記密碼時，在網站教師登入頁輸入 Email 後按「忘記密碼？」；開啟最新一封重設信，設定新密碼。若信件連到 localhost，表示 Supabase Site URL 尚未改成正式網站網址。
 

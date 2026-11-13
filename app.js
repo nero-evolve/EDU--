@@ -66,34 +66,37 @@ function teacherAnswerDetails(student){
 }
 async function renderTeacher(profile){
  $('#reset').hidden=true;$('#student-logout').hidden=true;
- const links=await cloud.classes();
- const exportRows=new Map();
- let html='<div class="panel teacher"><p class="eyebrow">班級管理 · 學習回饋</p><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+' <button id="logout" class="plain">登出</button></p><h3>建立班級</h3><div class="row"><input id="new-class" placeholder="班級名稱（例如 902）"><input id="new-class-code" inputmode="numeric" maxlength="3" placeholder="三位班級碼"><button id="make-class">新增班級</button></div><p class="meta">學生座號前 3 碼是班級，後 2 碼是座號，例如 90230。每次作答與進度會自動同步。老師可查看作答紀錄與調整核定分數；留空儲存可恢復系統分數。</p>';
+ const links=await cloud.classes(),exportRows=new Map();
+ let html='<div class="panel teacher"><p class="eyebrow">班級管理 · 學習紀錄</p><h1>教師儀表板</h1><p>教師：'+esc(profile.display_name)+' <button id="logout" class="plain">登出</button></p><h3>建立班級</h3><div class="row"><input id="new-class" placeholder="班級名稱（例如 902）"><input id="new-class-code" inputmode="numeric" maxlength="3" placeholder="三位班級碼"><button id="make-class">新增班級</button></div><p class="meta">學生座號前 3 碼是班級，後 2 碼是座號，例如 90230。學生進度與系統檢核分數會自動同步。勾選學生可將他們從本班名單移除；帳號與進度會保留，再次登入時仍可能重新加入。</p>';
  if(!links.length)html+='<p>目前沒有班級。先輸入班級名稱和三位班級碼。</p>';
  for(const link of links){
   const c=link.classes;if(!c)continue;
   const rows=await cloud.teacherClass(c.id);exportRows.set(c.id,{classInfo:c,rows});
-  html+='<h2>'+esc(c.name)+' <small>班級碼：'+esc(c.class_code||'尚未設定')+'</small></h2><button class="export-excel" data-export-class="'+esc(c.id)+'">下載 Excel 分數表</button><div class="scroll"><table><thead><tr><th>學生座號</th><th>任務進度</th><th>老師核定分數</th><th>課程狀態</th><th>作答紀錄</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{},grade=s.teacher_score??x.score??'';return '<tr><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td><div class="grade-editor"><label>老師核定分數<input type="number" min="0" max="100" step="1" inputmode="numeric" data-teacher-score="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" value="'+esc(grade)+'" placeholder="'+(x.score??0)+'"></label><small>系統檢核 '+(x.score??'—')+'／100</small><button data-save-score="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'">儲存</button></div></td><td>'+((s.state?.state?.completed)?'已完成':'進行中')+'</td><td>'+teacherAnswerDetails(s)+'</td></tr>';}).join('')+'</tbody></table></div>';
+  html+='<h2>'+esc(c.name)+' <small>班級碼：'+esc(c.class_code||'尚未設定')+'</small></h2><div class="teacher-roster-actions"><button type="button" class="remove-students" data-remove-class="'+esc(c.id)+'" data-class-name="'+esc(c.name)+'">刪除所選學生</button><span class="meta">刪除只會移出本班名單，不會刪除登入帳號或學習進度。</span></div><button type="button" class="export-excel" data-export-class="'+esc(c.id)+'">下載 Excel 分數表</button><div class="scroll"><table><thead><tr><th><input type="checkbox" data-select-all-class="'+esc(c.id)+'" aria-label="選取此班全部學生"></th><th>學生座號</th><th>任務進度</th><th>系統檢核分數</th><th>課程狀態</th><th>作答紀錄</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{},done=!!s.state?.state?.completed,hasProgress=!!s.updated_at;return '<tr><td><input type="checkbox" data-select-student data-student-id="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" aria-label="選取座號 '+esc(s.display_name)+'"></td><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td><strong>'+(x.score??0)+'／100</strong></td><td>'+(done?'已完成':hasProgress?'進行中':'尚未開始')+'</td><td>'+teacherAnswerDetails(s)+'</td></tr>';}).join('')+'</tbody></table></div>';
  }
  html+='</div>';$('#app').innerHTML=html;
  $('#logout').onclick=async()=>{await cloud.logout();loginScreen();};
  $('#make-class').onclick=async()=>{try{await cloud.createClass($('#new-class').value,$('#new-class-code').value);await boot();}catch(e){status(e.message);}};
+ document.querySelectorAll('[data-select-all-class]').forEach(box=>box.onchange=()=>document.querySelectorAll('input[data-select-student][data-class="'+box.dataset.selectAllClass+'"]').forEach(row=>row.checked=box.checked));
+ document.querySelectorAll('[data-remove-class]').forEach(button=>button.onclick=async()=>{
+  const classId=button.dataset.removeClass,selected=[...document.querySelectorAll('input[data-select-student][data-class="'+classId+'"]:checked')].map(box=>box.dataset.studentId);
+  if(!selected.length){status('請先勾選要移除的學生。');return;}
+  if(!confirm('確定將 '+selected.length+' 位學生從「'+button.dataset.className+'」名單移除？帳號與學習進度會保留；之後以座號登入仍可能重新加入。'))return;
+  try{const removed=await cloud.removeClassMembers(classId,selected);status('已將 '+removed+' 位學生從本班名單移除。');await boot();}catch(e){status('移除學生失敗：'+e.message);}
+ });
  document.querySelectorAll('[data-export-class]').forEach(b=>b.onclick=async()=>{
   const item=exportRows.get(b.dataset.exportClass);if(!item)return;
   try{
    status('正在準備 Excel 分數表…');
-   const XLSX=await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs');
-   const c=item.classInfo;
-   const aoa=[['班級',c.name],['班級碼',c.class_code||''],['匯出時間',new Date().toLocaleString('zh-TW')],[],['學生座號','任務進度','系統分數','老師核定分數','目前採計分數','課程狀態','完成步驟','總步驟','最後更新時間']];
-   for(const s of item.rows){const m=s.state?.metrics||{};aoa.push([s.display_name,m.progress??0,m.score??'',s.teacher_score??'',s.teacher_score??m.score??'',s.state?.state?.completed?'已完成':'進行中',m.done??0,m.totalSteps??0,s.updated_at?new Date(s.updated_at).toLocaleString('zh-TW'):'']);}
-   const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:14},{wch:12},{wch:12},{wch:16},{wch:16},{wch:12},{wch:12},{wch:12},{wch:22}];
-   if(item.rows.length)ws['!autofilter']={ref:'A5:I'+(5+item.rows.length)};
+   const XLSX=await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'),c=item.classInfo;
+   const aoa=[['班級',c.name],['班級碼',c.class_code||''],['匯出時間',new Date().toLocaleString('zh-TW')],[],['學生座號','任務進度','系統檢核分數','課程狀態','完成步驟','總步驟','最後更新時間']];
+   for(const s of item.rows){const m=s.state?.metrics||{};aoa.push([s.display_name,m.progress??0,m.score??0,s.state?.state?.completed?'已完成':s.updated_at?'進行中':'尚未開始',m.done??0,m.totalSteps??0,s.updated_at?new Date(s.updated_at).toLocaleString('zh-TW'):'']);}
+   const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:14},{wch:12},{wch:16},{wch:12},{wch:12},{wch:12},{wch:22}];
+   if(item.rows.length)ws['!autofilter']={ref:'A5:G'+(5+item.rows.length)};
    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'學生分數');
-   const safeName=String(c.name||'班級').replace(/[\/:*?"<>|]/g,'_');
-   XLSX.writeFile(wb,(c.class_code||'班級')+'_'+safeName+'_學生分數.xlsx');status('Excel 分數表已下載。');
+   const safeName=String(c.name||'班級').replace(/[\/:*?"<>|]/g,'_');XLSX.writeFile(wb,(c.class_code||'班級')+'_'+safeName+'_學生分數.xlsx');status('Excel 分數表已下載。');
   }catch(e){status('Excel 匯出失敗：'+esc(e.message));}
  });
- document.querySelectorAll('[data-save-score]').forEach(b=>b.onclick=async()=>{const input=document.querySelector('input[data-teacher-score="'+b.dataset.saveScore+'"][data-class="'+b.dataset.class+'"]');const value=input.value.trim()===''?null:Number(input.value);if(value!==null&&(!Number.isFinite(value)||value<0||value>100)){status('分數請輸入 0 到 100。');return;}try{await cloud.setTeacherScore(b.dataset.saveScore,b.dataset.class,value);status(value===null?'已恢復系統檢核分數。':'老師核定分數已儲存。');await boot();}catch(e){status('分數儲存失敗：'+esc(e.message));}});
 }
 async function boot(){
  const s=await cloud.session();if(!s){loginScreen(passwordRecoveryMode?'重設連結已失效，請重新申請密碼重設。':'');return;}if(passwordRecoveryMode){passwordRecoveryScreen();return;}const p=await cloud.profile();
