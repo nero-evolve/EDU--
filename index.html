@@ -1,21 +1,45 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>位元探險隊｜六關數位任務實驗室</title>
-<meta name="description" content="六關自學任務：從數字線索認識 0 和 1，再解碼文字、像素圖片與聲音取樣。">
-<link rel="icon" href="./favicon.ico">
-<link rel="stylesheet" href="./course.css?v=20261113-checkbox-size">
-<style>.sitefoot{margin:28px 0 0;text-align:center}.license-details{font-size:12px}.license-details summary{display:inline-block;cursor:pointer;color:#567286;text-decoration:underline;text-underline-offset:3px}.license-details p{margin:6px 0}</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f1f8fb">
+  <title>我的教材站</title>
+  <link rel="icon" href="./favicon.ico">
+  <link rel="stylesheet" href="./portal.css?v=20261116-portal-v1">
 </head>
 <body>
-<div class="wrap">
-<header class="toolbar"><b>位元探險隊</b><span class="identity">六關數位任務實驗室</span><button id="reset" class="plain">重新開始</button><button id="student-logout" class="plain" hidden>登出</button></header>
-<div id="sync" role="status" aria-live="polite">正在載入課程…</div>
-<main id="app"><noscript>這個課程需要開啟 JavaScript。</noscript></main>
-<footer class="meta sitefoot"><details class="license-details"><summary>授權資訊</summary><p>教材來源與修改說明請見 <a href="./LICENSE-CONTENT.md">授權說明</a>。</p><p>本版本依 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hant" rel="license">CC BY-NC-SA 4.0</a> 分享。</p></details></footer>
-</div>
-<script type="module" src="./app.js?v=20261113-remove-feedback-v2"></script>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="教材首頁"><span class="brand-mark">教</span><span><b>我的教材站</b><small>教學資源與任務入口</small></span></a>
+    <nav aria-label="主要選單"><button class="nav-tab active" data-view="student">學生教材</button><button class="nav-tab" data-view="teacher">老師管理</button></nav>
+    <a class="course-link" href="./bit-explorers.html">🚀 位元探險隊</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div><p class="eyebrow">LEARNING RESOURCE HUB</p><h1>找到今天要用的教材</h1><p>選擇年級，瀏覽老師準備的教材、學習單和任務。</p><div class="hero-actions"><button class="primary" data-jump-student>開始找教材 <span>↓</span></button><a class="quiet-link" href="./bit-explorers.html">前往位元探險隊 →</a></div></div>
+      <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="planet planet-a">7</span><span class="planet planet-b">8</span><span class="planet planet-c">9</span><span class="star star-a">✦</span><span class="star star-b">✧</span><div class="book">▤</div></div>
+    </section>
+
+    <section id="student-view" class="view-section">
+      <div class="section-heading"><div><p class="eyebrow">STUDENT LIBRARY</p><h2>學生教材區</h2><p>這裡只會顯示老師已發布、可以給學生使用的教材。</p></div><span class="section-badge">📚 自由瀏覽與下載</span></div>
+      <div class="filter-bar">
+        <label>年級<select id="grade-filter"><option value="all">全部年級</option><option value="7">七年級</option><option value="8">八年級</option><option value="9">九年級</option></select></label>
+        <label>科目<select id="subject-filter"><option value="all">全部科目</option></select></label>
+        <label class="search-field">搜尋教材<input id="search-filter" type="search" placeholder="輸入教材名稱或單元"></label>
+      </div>
+      <div id="material-list" class="material-grid" aria-live="polite"><div class="empty-state">正在載入教材…</div></div>
+    </section>
+
+    <section id="teacher-view" class="view-section teacher-view" hidden>
+      <div class="section-heading"><div><p class="eyebrow">TEACHER WORKSPACE</p><h2>老師教材管理</h2><p>老師登入後可以上傳、修改、下載或刪除教材。</p></div><span class="section-badge teacher-badge">🔐 老師專用</span></div>
+      <div id="teacher-root"><div class="empty-state">請使用老師帳號登入，管理教材。</div></div>
+    </section>
+
+    <section class="featured-course"><div class="course-symbol">BE</div><div><p class="eyebrow">INTERACTIVE COURSE</p><h2>位元探險隊</h2><p>從數字卡片一路探索位元、文字、圖片和聲音資料。</p></div><a class="primary" href="./bit-explorers.html">進入課程 →</a></section>
+  </main>
+
+  <footer><span>我的教材站</span><details><summary>教材來源與授權</summary><a href="./LICENSE-CONTENT.md">查看教材來源與修改說明</a></details></footer>
+  <script type="module" src="./portal.js?v=20261116-portal-v1"></script>
 </body>
 </html>
