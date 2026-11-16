@@ -29,6 +29,11 @@ create index if not exists teaching_materials_student_browse
   where audience = 'student' and is_published = true;
 
 update public.teaching_materials set subject = '資訊科技' where subject <> '資訊科技';
+-- Older uploads appended each filename to the theme title; remove that suffix so
+-- all files from the same theme appear together in the student library.
+update public.teaching_materials
+set title = btrim(regexp_replace(title, '[[:space:]]*[｜|].*$', ''))
+where title ~ '[｜|]';
 
 alter table public.teaching_materials enable row level security;
 grant select on public.teaching_materials to anon, authenticated;
@@ -60,14 +65,11 @@ create policy teaching_materials_teacher_delete
   on public.teaching_materials for delete to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'teacher'));
 
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values
-  ('learning-materials', 'learning-materials', true, 52428800, null),
-  ('teacher-materials', 'teacher-materials', false, 52428800, null)
-on conflict (id) do update set
-  public = excluded.public,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ('learning-materials', 'learning-materials', true, 52428800, null)
+on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ('teacher-materials', 'teacher-materials', false, 52428800, null)
+on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists teaching_materials_teacher_upload on storage.objects;
 create policy teaching_materials_teacher_upload
