@@ -11,13 +11,12 @@ function setStudentMessage(text,kind='info'){$('#material-list').innerHTML=messa
 function publicUrl(row){const c=window.__materialClient;const {data}=c.storage.from(row.storage_bucket).getPublicUrl(row.storage_path,{download:row.original_name});return data.publicUrl;}
 
 async function fetchStudentMaterials(){
-  try{const c=await cloud.db();const {data,error}=await c.from('teaching_materials').select('*').eq('audience','student').eq('is_published',true).order('grade').order('subject').order('title');if(error)throw error;materials=data||[];updateSubjectOptions();renderStudentMaterials();}
+  try{const c=await cloud.db();const {data,error}=await c.from('teaching_materials').select('*').eq('audience','student').eq('is_published',true).order('grade').order('title');if(error)throw error;materials=data||[];renderStudentMaterials();}
   catch(e){setStudentMessage('目前無法載入教材。老師可能還沒完成教材資料庫設定。\n'+e.message,'error');}
 }
-function updateSubjectOptions(){const select=$('#subject-filter'),chosen=select.value;const subjects=[...new Set(materials.map(x=>x.subject).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));select.innerHTML='<option value="all">全部科目</option>'+subjects.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');if(subjects.includes(chosen))select.value=chosen;}
 function renderStudentMaterials(){
-  const grade=$('#grade-filter').value,subject=$('#subject-filter').value,query=$('#search-filter').value.trim().toLowerCase();
-  const rows=materials.filter(x=>(grade==='all'||String(x.grade)===grade)&&(subject==='all'||x.subject===subject)&&(!query||[x.title,x.unit,x.description,x.subject].some(t=>String(t||'').toLowerCase().includes(query))));
+  const grade=$('#grade-filter').value,query=$('#search-filter').value.trim().toLowerCase();
+  const rows=materials.filter(x=>(grade==='all'||String(x.grade)===grade)&&(!query||[x.title,x.unit,x.description].some(t=>String(t||'').toLowerCase().includes(query))));
   if(!rows.length){setStudentMessage(materials.length?'目前找不到符合條件的教材。':'老師還沒有發布教材。');return;}
   $('#material-list').innerHTML=rows.map(row=>'<article class="material-card"><div class="card-top"><span class="grade-chip">'+gradeName(row.grade)+'</span><span class="file-type">'+esc(typeName[row.resource_type]||typeName.other)+'</span></div><h3>'+esc(row.title)+'</h3>'+(row.unit?'<p class="unit">'+esc(row.unit)+'</p>':'')+'<p class="description">'+esc(row.description||'老師準備的學習資源。')+'</p><div class="card-bottom"><span class="subject-label">'+esc(row.subject||'教材')+'</span><a class="download-btn" href="'+esc(publicUrl(row))+'" target="_blank" rel="noopener" download="'+esc(row.original_name)+'">下載教材 ↓</a></div></article>').join('');
 }
@@ -29,7 +28,7 @@ function teacherLogin(){
 
 function teacherForm(row=null){
   const r=row||{};editing=r.id||null;
-  return '<section class="form-panel"><h3>'+(editing?'編輯教材':'新增教材')+'</h3><form id="material-form"><div class="form-grid"><label>教材名稱<input name="title" maxlength="120" required value="'+esc(r.title||'')+'"></label><label>年級<select name="grade" required><option value="">選擇年級</option>'+[7,8,9].map(g=>'<option value="'+g+'" '+(Number(r.grade)===g?'selected':'')+'>'+gradeName(g)+'</option>').join('')+'</select></label><label>科目<input name="subject" maxlength="60" required placeholder="例如：資訊科技" value="'+esc(r.subject||'')+'"></label><label>單元／主題<input name="unit" maxlength="100" placeholder="例如：資料表示法" value="'+esc(r.unit||'')+'"></label><label>教材類型<select name="resource_type">'+Object.entries(typeName).map(([k,v])=>'<option value="'+k+'" '+((r.resource_type||'lesson')===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><label>誰可以看<select name="audience"><option value="student" '+((r.audience||'student')==='student'?'selected':'')+'>學生可檢視與下載</option><option value="teacher" '+(r.audience==='teacher'?'selected':'')+'>老師限定</option></select></label><label class="wide">簡介<textarea name="description" maxlength="500" placeholder="簡單說明教材內容">'+esc(r.description||'')+'</textarea></label><label class="wide">教材檔案<input name="file" type="file" '+(editing?'':'required')+'><small class="subject-label">支援 PDF、Office 文件、圖片、音訊、影片及 ZIP；單檔上限依 Supabase 設定。</small>'+(editing&&r.original_name?'<small class="subject-label">目前檔案：'+esc(r.original_name)+'（不選新檔即可保留）</small>':'')+'</label><label class="wide"><span><input type="checkbox" name="is_published" '+(r.is_published===false?'':'checked')+'> 發布給學生（老師限定教材不會出現在學生區）</span></label></div><div class="form-actions"><button class="primary">'+(editing?'儲存修改':'上傳教材')+'</button>'+(editing?'<button type="button" id="cancel-edit" class="secondary-btn">取消編輯</button>':'')+'</div><p id="form-message" class="form-error"></p></form></section>';
+  return '<section class="form-panel"><h3>'+(editing?'編輯教材':'新增教材')+'</h3><form id="material-form"><div class="form-grid"><label>教材名稱<input name="title" maxlength="120" required value="'+esc(r.title||'')+'"></label><label>年級<select name="grade" required><option value="">選擇年級</option>'+[7,8,9].map(g=>'<option value="'+g+'" '+(Number(r.grade)===g?'selected':'')+'>'+gradeName(g)+'</option>').join('')+'</select></label><label>科目<input value="資訊科技" readonly></label><label>單元／主題<input name="unit" maxlength="100" placeholder="例如：資料表示法" value="'+esc(r.unit||'')+'"></label><label>教材類型<select name="resource_type">'+Object.entries(typeName).map(([k,v])=>'<option value="'+k+'" '+((r.resource_type||'lesson')===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><label>誰可以看<select name="audience"><option value="student" '+((r.audience||'student')==='student'?'selected':'')+'>學生可檢視與下載</option><option value="teacher" '+(r.audience==='teacher'?'selected':'')+'>老師限定</option></select></label><label class="wide">簡介<textarea name="description" maxlength="500" placeholder="簡單說明教材內容">'+esc(r.description||'')+'</textarea></label><label class="wide">教材檔案<input name="file" type="file" '+(editing?'':'multiple required')+'><small class="subject-label">可一次選取多個檔案；不限制副檔名或檔案格式。單檔上限依 Supabase Storage 設定。</small>'+(editing&&r.original_name?'<small class="subject-label">目前檔案：'+esc(r.original_name)+'（不選新檔即可保留）</small>':'')+'</label><label class="wide"><span><input type="checkbox" name="is_published" '+(r.is_published===false?'':'checked')+'> 發布給學生（老師限定教材不會出現在學生區）</span></label></div><div class="form-actions"><button class="primary">'+(editing?'儲存修改':'上傳教材')+'</button>'+(editing?'<button type="button" id="cancel-edit" class="secondary-btn">取消編輯</button>':'')+'</div><p id="form-message" class="form-error"></p></form></section>';
 }
 function teacherTable(){
   if(!materials.length)return '<div class="empty-state">還沒有教材。可用上方表單新增第一份教材。</div>';
@@ -48,7 +47,7 @@ function renderTeacherMaterials(name='老師'){
   $('#teacher-root').querySelectorAll('[data-download]').forEach(b=>b.onclick=async e=>{e.preventDefault();const win=window.open('about:blank','_blank');try{const row=materials.find(x=>x.id===b.dataset.download),c=await cloud.db();let url;if(row.storage_bucket===STUDENT_BUCKET)url=publicUrl(row);else{const {data,error}=await c.storage.from(row.storage_bucket).createSignedUrl(row.storage_path,600,{download:row.original_name});if(error)throw error;url=data.signedUrl;}if(win)win.location=url;else alert('瀏覽器封鎖了下載視窗，請允許此網站開啟新視窗後再試。');}catch(err){if(win)win.close();alert('下載失敗：'+err.message);}});
 }
 
-async function bindMaterialForm(){
+async function bindMaterialFormObsolete(){
   const form=$('#material-form');if(!form)return;
   form.onsubmit=async e=>{e.preventDefault();const data=new FormData(form),file=data.get('file'),button=form.querySelector('button[type="submit"]')||form.querySelector('.primary');button.disabled=true;$('#form-message').textContent='正在儲存…';let uploaded=null;
     try{const c=await cloud.db(),audience=String(data.get('audience')),isPublished=data.has('is_published'),bucket=audience==='student'&&isPublished?STUDENT_BUCKET:TEACHER_BUCKET,old=materials.find(x=>x.id===editing);let storageBucket=old?.storage_bucket,storagePath=old?.storage_path,originalName=old?.original_name,mimeType=old?.mime_type,sizeBytes=old?.size_bytes;
@@ -63,6 +62,38 @@ async function bindMaterialForm(){
   };
   const cancel=$('#cancel-edit');if(cancel)cancel.onclick=()=>loadTeacherMaterials();
 }
+async function bindMaterialForm(){
+  const form=$('#material-form');if(!form)return;
+  form.onsubmit=async e=>{
+    e.preventDefault();const data=new FormData(form),files=Array.from(form.querySelector('[name="file"]').files||[]),button=form.querySelector('.primary'),messageEl=$('#form-message');
+    const old=materials.find(x=>x.id===editing),audience=String(data.get('audience')),isPublished=data.has('is_published'),bucket=audience==='student'&&isPublished?STUDENT_BUCKET:TEACHER_BUCKET;
+    if(editing&&files.length>1){messageEl.textContent='編輯時一次只能替換一個檔案。';return;}
+    if(!editing&&!files.length){messageEl.textContent='請先選擇要上傳的檔案。';return;}
+    if(old&&old.storage_bucket!==bucket&&!files.length){messageEl.textContent='變更學生／老師存取權或發布狀態時，請重新選取檔案，讓系統移到正確的安全空間。';return;}
+    button.disabled=true;let saved=0,activeUpload=null;
+    try{
+      const c=await cloud.db(),baseTitle=String(data.get('title')||'').trim(),common={grade:Number(data.get('grade')),subject:'資訊科技',unit:String(data.get('unit')||'').trim(),resource_type:String(data.get('resource_type')),description:String(data.get('description')||'').trim(),audience,is_published:isPublished,updated_at:new Date().toISOString(),created_by:currentUser.id};
+      if(editing){
+        let storageBucket=old.storage_bucket,storagePath=old.storage_path,originalName=old.original_name,mimeType=old.mime_type,sizeBytes=old.size_bytes;
+        if(files.length){const file=files[0],ext=(file.name.split('.').pop()||'file').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10)||'file';storagePath=currentUser.id+'/'+crypto.randomUUID()+'.'+ext;activeUpload={bucket,path:storagePath};const {error}=await c.storage.from(bucket).upload(storagePath,file,{contentType:file.type||'application/octet-stream',upsert:false});if(error)throw error;storageBucket=bucket;originalName=file.name;mimeType=file.type||'application/octet-stream';sizeBytes=file.size;}
+        const {error}=await c.from('teaching_materials').update({...common,title:baseTitle,storage_bucket:storageBucket,storage_path:storagePath,original_name:originalName,mime_type:mimeType,size_bytes:sizeBytes}).eq('id',editing);if(error)throw error;
+        if(files.length){const {error:removeError}=await c.storage.from(old.storage_bucket).remove([old.storage_path]);if(removeError)console.warn('新檔已更新，但舊檔清理失敗',removeError);}
+        activeUpload=null;editing=null;await loadTeacherMaterials();return;
+      }
+      for(let i=0;i<files.length;i++){
+        const file=files[i],ext=(file.name.split('.').pop()||'file').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10)||'file',path=currentUser.id+'/'+crypto.randomUUID()+'.'+ext;
+        messageEl.textContent='正在上傳 '+(i+1)+'／'+files.length+' 個檔案…';activeUpload={bucket,path};
+        const {error:uploadError}=await c.storage.from(bucket).upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false});if(uploadError)throw new Error(file.name+'：'+uploadError.message);
+        const stem=file.name.replace(/\.[^.]+$/,'').trim(),title=(files.length===1?baseTitle:baseTitle+'｜'+stem).slice(0,120);
+        const {error:insertError}=await c.from('teaching_materials').insert({...common,title,storage_bucket:bucket,storage_path:path,original_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size});
+        if(insertError){await c.storage.from(bucket).remove([path]);activeUpload=null;throw new Error(file.name+'：'+insertError.message);}
+        activeUpload=null;saved++;
+      }
+      editing=null;await loadTeacherMaterials();alert('已成功上傳 '+saved+' 個教材檔案。');
+    }catch(err){if(activeUpload){const c=await cloud.db();await c.storage.from(activeUpload.bucket).remove([activeUpload.path]);}const errorText=(saved?'已成功上傳 '+saved+' 個；':'')+'上傳失敗：'+err.message;messageEl.textContent=errorText;button.disabled=false;if(saved){await loadTeacherMaterials();alert(errorText);}}
+  };
+}
+
 async function deleteMaterial(id){
   const row=materials.find(x=>x.id===id);if(!row||!confirm('刪除「'+row.title+'」及其上傳檔案？此操作無法復原。'))return;
   try{const c=await cloud.db(),{error:storageError}=await c.storage.from(row.storage_bucket).remove([row.storage_path]);if(storageError)throw storageError;const {error}=await c.from('teaching_materials').delete().eq('id',id);if(error)throw error;await loadTeacherMaterials();}catch(e){alert('刪除失敗：'+e.message);}
@@ -71,6 +102,6 @@ async function deleteMaterial(id){
 function setView(view){document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('#teacher-view').hidden=view!=='teacher';$('#student-view').hidden=view!=='student';if(view==='teacher'){if(currentUser)loadTeacherMaterials();else teacherLogin();}else fetchStudentMaterials();}
 document.querySelectorAll('.nav-tab').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 $('[data-jump-student]').onclick=()=>$('#student-view').scrollIntoView({behavior:'smooth'});
-['grade-filter','subject-filter'].forEach(id=>$('#'+id).onchange=renderStudentMaterials);$('#search-filter').oninput=renderStudentMaterials;
+$('#grade-filter').onchange=renderStudentMaterials;$('#search-filter').oninput=renderStudentMaterials;
 window.__materialClient=await cloud.db().catch(()=>null);
 if(!window.__materialClient){setStudentMessage('無法連線教材服務，請確認 cloud-config.js 設定。','error');}else fetchStudentMaterials();

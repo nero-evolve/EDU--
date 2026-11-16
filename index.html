@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f1f8fb">
   <title>我的教材站</title>
   <link rel="icon" href="./favicon.ico">
-  <link rel="stylesheet" href="./portal.css?v=20261116-portal-v1">
+  <link rel="stylesheet" href="./portal.css?v=20261116-portal-v2">
 </head>
 <body>
   <header class="site-header">
@@ -25,7 +25,7 @@
       <div class="section-heading"><div><p class="eyebrow">STUDENT LIBRARY</p><h2>學生教材區</h2><p>這裡只會顯示老師已發布、可以給學生使用的教材。</p></div><span class="section-badge">📚 自由瀏覽與下載</span></div>
       <div class="filter-bar">
         <label>年級<select id="grade-filter"><option value="all">全部年級</option><option value="7">七年級</option><option value="8">八年級</option><option value="9">九年級</option></select></label>
-        <label>科目<select id="subject-filter"><option value="all">全部科目</option></select></label>
+        <label>科目<input value="資訊科技" readonly></label>
         <label class="search-field">搜尋教材<input id="search-filter" type="search" placeholder="輸入教材名稱或單元"></label>
       </div>
       <div id="material-list" class="material-grid" aria-live="polite"><div class="empty-state">正在載入教材…</div></div>
@@ -40,6 +40,6 @@
   </main>
 
   <footer><span>我的教材站</span><details><summary>教材來源與授權</summary><a href="./LICENSE-CONTENT.md">查看教材來源與修改說明</a></details></footer>
-  <script type="module" src="./portal.js?v=20261116-portal-v1"></script>
+  <script type="module" src="./portal.js?v=20261116-portal-v2"></script>
 </body>
 </html>

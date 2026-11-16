@@ -28,6 +28,8 @@ create index if not exists teaching_materials_student_browse
   on public.teaching_materials (grade, subject, title)
   where audience = 'student' and is_published = true;
 
+update public.teaching_materials set subject = '資訊科技' where subject <> '資訊科技';
+
 alter table public.teaching_materials enable row level security;
 grant select on public.teaching_materials to anon, authenticated;
 grant insert, update, delete on public.teaching_materials to authenticated;
@@ -60,10 +62,8 @@ create policy teaching_materials_teacher_delete
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('learning-materials', 'learning-materials', true, 52428800,
-   array['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation','text/plain','text/csv','image/jpeg','image/png','image/webp','image/gif','audio/mpeg','audio/wav','audio/mp4','video/mp4','video/webm','application/zip','application/x-zip-compressed']),
-  ('teacher-materials', 'teacher-materials', false, 52428800,
-   array['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation','text/plain','text/csv','image/jpeg','image/png','image/webp','image/gif','audio/mpeg','audio/wav','audio/mp4','video/mp4','video/webm','application/zip','application/x-zip-compressed'])
+  ('learning-materials', 'learning-materials', true, 52428800, null),
+  ('teacher-materials', 'teacher-materials', false, 52428800, null)
 on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
