@@ -114,3 +114,6 @@ revoke all on function public.save_course_progress(text,jsonb,bigint,timestamptz
 grant execute on function public.save_course_progress(text,jsonb,bigint,timestamptz),
   public.delete_course_progress(text), public.teacher_course_progress(uuid,text),
   public.course_class_leaderboard(uuid,text) to authenticated;
+
+-- Make PostgREST pick up the RPCs immediately for the course leaderboard.
+notify pgrst, 'reload schema';
