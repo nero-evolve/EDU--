@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f1f8fb">
-  <title>我的教材站</title>
+  <title>資訊科技教材站</title>
   <link rel="icon" href="./favicon.ico">
-  <link rel="stylesheet" href="./portal.css?v=20261116-portal-v3">
+  <link rel="stylesheet" href="./portal.css?v=20261117-portal-v5">
+  <link rel="stylesheet" href="./portal-overrides.css?v=20261117-portal-v2">
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="./" aria-label="教材首頁"><span class="brand-mark">教</span><span><b>我的教材站</b><small>教學資源與任務入口</small></span></a>
+    <a class="brand" href="./" aria-label="教材首頁"><span class="brand-mark">資</span><span><b>資訊科技教材站</b><small>教學資源與任務入口</small></span></a>
     <nav aria-label="主要選單"><button class="nav-tab active" data-view="student">學生教材</button><button class="nav-tab" data-view="teacher">老師管理</button></nav>
-    <a class="course-link" href="./bit-explorers.html">🚀 位元探險隊</a>
   </header>
 
   <main>
@@ -22,7 +22,7 @@
     </section>
 
     <section id="student-view" class="view-section">
-      <div class="section-heading"><div><p class="eyebrow">STUDENT LIBRARY</p><h2>學生教材區</h2><p>這裡只會顯示老師已發布、可以給學生使用的教材。</p></div><span class="section-badge">📚 自由瀏覽與下載</span></div>
+      <div class="section-heading"><div><p class="eyebrow">STUDENT LIBRARY</p><h2>學生教材區</h2><p>這裡只會顯示老師已發布、可以給學生使用的教材。</p></div><div class="section-badges"><span class="section-badge">📚 自由瀏覽與下載</span><a class="section-badge classroom-link" href="https://classroom.google.com/">📝 作業請至 Google Classroom →</a></div></div>
       <div class="filter-bar">
         <label>年級<select id="grade-filter"><option value="all">全部年級</option><option value="7">七年級</option><option value="8">八年級</option><option value="9">九年級</option></select></label>
         <label>科目<input value="資訊科技" readonly></label>
@@ -39,7 +39,7 @@
     <section class="featured-course"><div class="course-symbol">BE</div><div><p class="eyebrow">INTERACTIVE COURSE</p><h2>位元探險隊</h2><p>從數字卡片一路探索位元、文字、圖片和聲音資料。</p></div><a class="primary" href="./bit-explorers.html">進入課程 →</a></section>
   </main>
 
-  <footer><span>我的教材站</span><details><summary>教材來源與授權</summary><a href="./LICENSE-CONTENT.md">查看教材來源與修改說明</a></details></footer>
-  <script type="module" src="./portal.js?v=20261116-portal-v3"></script>
+  <footer><span>資訊科技教材站</span><span>作者：林暐昇老師</span><details><summary>教材來源與授權</summary><a href="./LICENSE-CONTENT.md">查看教材來源與修改說明</a></details></footer>
+  <script type="module" src="./portal.js?v=20261117-portal-v5"></script>
 </body>
 </html>
