@@ -26,6 +26,25 @@
       <li><a href="https://opensource.org/osd" target="_blank" rel="noreferrer">Open Source Initiative：開放原始碼定義</a></li>
     </ul><p>課程概念依康軒「認識系統平臺」與「新興系統平臺」簡報整理；補充說明以官方文件為準。</p></details></footer>
   </div>
-  <script src="./course.js" defer></script>
+  <script>
+    function showCourseError(message) {
+      const app = document.querySelector('#app');
+      const panel = document.createElement('section');
+      panel.className = 'load-error';
+      const title = document.createElement('h2');
+      title.textContent = '課程內容沒有載入';
+      const detail = document.createElement('p');
+      detail.textContent = message;
+      const steps = document.createElement('p');
+      steps.textContent = '請確認 GitHub 的 interactive-courses/system-platforms 資料夾內有 index.html、style.css 和 course.js，並重新整理網站。';
+      panel.append(title, detail, steps);
+      app.replaceChildren(panel);
+      document.querySelector('#status').textContent = '課程程式載入失敗。';
+    }
+    window.addEventListener('error', event => {
+      if (event.target === window) showCourseError(`程式錯誤：${event.message}`);
+    });
+  </script>
+  <script src="./course.js?v=20261117-render-fix" defer onerror="showCourseError('找不到 course.js，請確認它已上傳到這個課程資料夾。')"></script>
 </body>
 </html>
