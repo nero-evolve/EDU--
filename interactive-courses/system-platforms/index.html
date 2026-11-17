@@ -12,10 +12,10 @@
 <body>
   <div class="shell">
     <header class="topbar">
-      <a class="brand" href="../../" aria-label="回資訊科技教材站首頁"><span class="brand-mark">OS</span><span><b>系統平臺探險隊</b><small>數位城市維修任務</small></span></a>
-      <div class="top-actions"><a class="home-link" href="../../">教材首頁</a><button id="reset" class="quiet-button" type="button">重新開始</button></div>
+      <a class="brand" href="https://nero-evolve.github.io/EDU--/" aria-label="回資訊科技教材站首頁"><span class="brand-mark">OS</span><span><b>系統平臺探險隊</b><small>數位城市維修任務</small></span></a>
+      <div class="top-actions"><a class="home-link" href="https://nero-evolve.github.io/EDU--/">教材首頁</a><button id="reset" class="quiet-button" type="button" hidden>重新開始</button><button id="logout" class="quiet-button" type="button" hidden>登出</button></div>
     </header>
-    <div id="status" class="status" role="status" aria-live="polite">進度儲存在這個瀏覽器。</div>
+    <div id="status" class="status" role="status" aria-live="polite">登入後，作答進度會同步到雲端。</div>
     <main id="app" tabindex="-1"><noscript>這個課程需要開啟 JavaScript 才能遊玩。</noscript></main>
     <footer><span>資訊科技教材站</span><span>作者：林暐昇老師</span><details><summary>延伸資料</summary><ul>
       <li><a href="https://csrc.nist.gov/pubs/sp/800/145/final" target="_blank" rel="noreferrer">NIST：雲端運算定義與服務模式</a></li>
@@ -23,8 +23,10 @@
       <li><a href="https://docs.arduino.cc/tutorials/uno-rev3/board-anatomy/" target="_blank" rel="noreferrer">Arduino 官方文件：開發板結構</a></li>
       <li><a href="https://support.microsoft.com/en-us/windows/experience/storage-filemanagement/defragment-optimize-your-data-drives-in-windows" target="_blank" rel="noreferrer">Microsoft：HDD 與 SSD 的磁碟最佳化</a></li>
       <li><a href="https://support.microsoft.com/en-us/windows/security/windows-security/firewall-and-network-protection-in-the-windows-security-app" target="_blank" rel="noreferrer">Microsoft：Windows 防火牆與網路保護</a></li>
+      <li><a href="https://www.raspberrypi.org/teach/pedagogy" target="_blank" rel="noreferrer">Raspberry Pi Foundation：循序示範、生活情境與支架教學</a></li>
+      <li><a href="https://studio.code.org/courses/k5-unplugged/units/1/lessons/17" target="_blank" rel="noreferrer">Code.org：硬體與軟體角色扮演活動</a></li>
       <li><a href="https://opensource.org/osd" target="_blank" rel="noreferrer">Open Source Initiative：開放原始碼定義</a></li>
-    </ul><p>課程概念依康軒「認識系統平臺」與「新興系統平臺」簡報整理；補充說明以官方文件為準。</p></details></footer>
+    </ul><p>教學採生活情境、示範與動手任務；參考 Raspberry Pi Foundation 與 Code.org 的電腦概念教學活動。</p></details></footer>
   </div>
   <script>
     function showCourseError(message) {
@@ -45,6 +47,6 @@
       if (event.target === window) showCourseError(`程式錯誤：${event.message}`);
     });
   </script>
-  <script src="./course.js?v=20261117-render-fix" defer onerror="showCourseError('找不到 course.js，請確認它已上傳到這個課程資料夾。')"></script>
+  <script src="./course.js?v=20261117-guided-auth" defer onerror="showCourseError('找不到 course.js，請確認它已上傳到這個課程資料夾。')"></script>
 </body>
 </html>

@@ -1,11 +1,20 @@
 # 系統平臺探險隊
 
-本資料夾放置「系統平臺探險隊」課程，網址入口為 `interactive-courses/system-platforms/`。
+課程採「生活情境 → 概念說明 → worked example 示範 → 動手任務 → 回饋」的順序，包含分類、流程排序與機器人移動任務。答錯可重試；每次使用提示扣 2 分。
 
-- `index.html`：課程頁面結構
-- `style.css`：課程版面與互動元件樣式
-- `course.js`：課程內容、答題互動與本機進度
+## 上線檔案
 
-新增互動教學網站時，可依 `interactive-courses/<課程代稱>/` 分資料夾，將課程頁、樣式和互動程式放在一起。共用素材仍可放在網站根目錄的 `images/`。
+- 本資料夾：`index.html`、`style.css`、`course.js`
+- 專案根目錄：更新後的 `cloud.js`
+- 專案根目錄：新增的 `system-platforms-progress.sql`
 
-學生進度存在目前瀏覽器的 localStorage，不會同步到其他裝置或老師後台。
+學生與教師使用原有 Supabase 登入帳號和班級設定。系統平臺進度儲存在獨立的 `course_progress` 資料表，不會覆蓋位元探險隊的 `progress`。
+
+## Supabase 設定
+
+1. 在 Supabase SQL Editor 執行專案根目錄的 `system-platforms-progress.sql` 一次。
+2. 將本資料夾三個網站檔上傳到 GitHub 的 `interactive-courses/system-platforms/`。
+3. 將更新後的 `cloud.js` 與新 SQL 檔上傳到 GitHub 專案根目錄。
+4. 學生透過課程頁登入五位數班級座號；教師使用相同教師帳號。教師可以查看該班每人的分數、完成任務、提示數和作答明細。
+
+如果 SQL 尚未執行，登入後進度仍會暫存在該學生目前使用的瀏覽器，但無法同步到其他裝置或教師後台。
