@@ -16,24 +16,23 @@
   <path d="M108 60c0-14.36 11.64-26 26-26h292c14.36 0 26 11.64 26 26v26H108V60Z" fill="#EAF6F8"/>
   <circle cx="132" cy="60" r="4" fill="#F18C6A"/><circle cx="148" cy="60" r="4" fill="#EBCB78"/><circle cx="164" cy="60" r="4" fill="#68B89D"/>
   <text x="280" y="65" text-anchor="middle" fill="#315E72" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">運算思維四步驟</text>
-  <rect x="183" y="147" width="145" height="43" rx="13" fill="#E6F4F6" stroke="#B9DDE4" stroke-width="1.5"/>
-  <circle cx="202" cy="168.5" r="12" fill="#167F94"/><text x="202" y="173" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="800">01</text>
-  <text x="259" y="174" text-anchor="middle" fill="#15566B" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">問題拆解</text>
-  <path d="M328 168h22m-6-6 6 6-6 6" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="354" y="147" width="76" height="43" rx="13" fill="#FFF2E9" stroke="#F2D7C5" stroke-width="1.5"/>
-  <circle cx="370" cy="168.5" r="11" fill="#E88969"/><text x="370" y="172.5" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="10" font-weight="800">02</text>
-  <text x="404" y="173" text-anchor="middle" fill="#A65B3E" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="13" font-weight="700">找規律</text>
-  <path d="M391 194v20H258v9" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="m254 219 4 4 4-4" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="183" y="226" width="145" height="43" rx="13" fill="#EAF6EE" stroke="#C9E5D3" stroke-width="1.5"/>
-  <circle cx="202" cy="247.5" r="12" fill="#68A989"/><text x="202" y="252" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="800">03</text>
-  <text x="260" y="253" text-anchor="middle" fill="#39755C" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">抽象化</text>
-  <path d="M328 247h22m-6-6 6 6-6 6" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="354" y="226" width="76" height="43" rx="13" fill="#EAF1FA" stroke="#C6D9EB" stroke-width="1.5"/>
-  <circle cx="370" cy="247.5" r="11" fill="#658FB2"/><text x="370" y="251.5" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="10" font-weight="800">04</text>
-  <text x="404" y="252" text-anchor="middle" fill="#426A89" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="13" font-weight="700">設計步驟</text>
-  <rect x="52" y="127" width="102" height="48" rx="18" fill="#fff" stroke="#BBDCE5" stroke-width="2"/>
-  <circle cx="70" cy="151" r="5" fill="#16849B"/><text x="111" y="156" text-anchor="middle" fill="#15566B" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="13" font-weight="700">解決問題</text>
+  <rect x="128" y="111" width="140" height="54" rx="14" fill="#E6F4F6" stroke="#B9DDE4" stroke-width="1.5"/>
+  <circle cx="149" cy="138" r="12" fill="#167F94"/><text x="149" y="142" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="10" font-weight="800">01</text>
+  <text x="207" y="143" text-anchor="middle" fill="#15566B" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">問題拆解</text>
+  <path d="M270 138h17m-6-6 6 6-6 6" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="292" y="111" width="140" height="54" rx="14" fill="#FFF2E9" stroke="#F2D7C5" stroke-width="1.5"/>
+  <circle cx="313" cy="138" r="12" fill="#E88969"/><text x="313" y="142" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="10" font-weight="800">02</text>
+  <text x="371" y="143" text-anchor="middle" fill="#A65B3E" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">找出規律</text>
+  <path d="M362 166v25m-5-7 5 7 5-7" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="292" y="197" width="140" height="54" rx="14" fill="#EAF6EE" stroke="#C9E5D3" stroke-width="1.5"/>
+  <circle cx="313" cy="224" r="12" fill="#68A989"/><text x="313" y="228" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="10" font-weight="800">03</text>
+  <text x="371" y="229" text-anchor="middle" fill="#39755C" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">抽象化</text>
+  <path d="M290 224h-17m6-6-6 6 6 6" stroke="#16849B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="128" y="197" width="140" height="54" rx="14" fill="#EAF1FA" stroke="#C6D9EB" stroke-width="1.5"/>
+  <circle cx="149" cy="224" r="12" fill="#658FB2"/><text x="149" y="228" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="10" font-weight="800">04</text>
+  <text x="207" y="229" text-anchor="middle" fill="#426A89" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="15" font-weight="700">設計演算法</text>
+  <rect x="10" y="127" width="101" height="48" rx="18" fill="#fff" stroke="#BBDCE5" stroke-width="2"/>
+  <circle cx="28" cy="151" r="5" fill="#16849B"/><text x="68" y="156" text-anchor="middle" fill="#15566B" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="12" font-weight="700">運算思維</text>
   <rect x="379" y="91" width="91" height="46" rx="17" fill="#EAF6EE" stroke="#C9E5D3" stroke-width="2"/>
   <text x="424.5" y="110" text-anchor="middle" fill="#48836C" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="12" font-weight="700">演算法</text>
   <text x="424.5" y="126" text-anchor="middle" fill="#658092" font-family="system-ui,'Noto Sans TC',sans-serif" font-size="10">步驟清楚可執行</text>
