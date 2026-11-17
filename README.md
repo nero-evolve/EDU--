@@ -19,7 +19,9 @@
 
 ## 程式檔案
 
-`app.js` 管理學生和教師介面；`engine.js` 管理任務、檢核分數與進度；`content.js` 放分階段課程文字和題目；`visuals.js` 用 SVG 繪製新圖解；`cloud.js` 串接 Supabase；`supabase.sql` 設定班級、進度及資料權限。
+位元探險隊的課程程式已分類放在 `interactive-courses/bit-explorers/`：`app.js` 管理學生和教師介面；`engine.js` 管理任務、檢核分數與進度；`content.js` 放課程文字和題目；`visuals.js` 用 SVG 繪製圖解；`course.css` 是課程樣式。Supabase 共用連線程式 `cloud.js`、設定 `cloud-config.js` 和資料庫 SQL 仍放在根目錄，因為教材入口也會使用共用連線。
+
+「系統平臺探險隊」放在 `interactive-courses/system-platforms/`。互動課程統一使用 `interactive-courses/<課程名稱>/` 分類，每個資料夾放自己的頁面、樣式、互動程式和說明。
 
 ## 授權
 

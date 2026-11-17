@@ -5,12 +5,12 @@
 - 網站首頁 `index.html` 是教材入口，學生可以選七、八、九年級、搜尋教材並下載已發布的學生教材。
 - 老師點「老師管理」後，用現有的教師 Email 和密碼登入。新增教材時可分多次挑選檔案，檔案會累積在待上傳清單；填好同一個教材主題後按一次上傳，所有檔案會歸在同一主題下。老師仍可逐檔編輯、替換、下載或刪除。
 - 學生端以年級、教材主題和單元將教材分組；點開主題卡片後才會顯示檔案清單與下載按鈕。
-- 互動式教學網站有獨立分類，目前收錄「位元探險隊」；未來可在同一區新增其他操作型課程入口。
+- 互動式教學網站集中在 `interactive-courses/`，目前收錄「位元探險隊」與「系統平臺探險隊」；每個課程的頁面、樣式、程式和說明各自放在子資料夾。
 - 學生作業繳交使用 Google Classroom；教材首頁提供 Classroom 入口連結，不在 Supabase 建立作業上傳區。
 - 首頁名稱為「資訊科技教材站」，頁尾署名「作者：林暐昇老師」。
 - 教材編輯可修改主題名稱、年級、單元、教材類型、學生／教師存取範圍及發布／草稿狀態；科目依設定固定為「資訊科技」。切換公開／私有狀態會由系統自動搬移檔案。
 - 科目固定為「資訊科技」；學生端保留年級篩選，不提供科目篩選。
-- 舊的位元探險隊課程保存在 `bit-explorers.html`；課程內可點「教材首頁」返回入口。
+- 位元探險隊課程位於 `interactive-courses/bit-explorers/`；舊入口 `bit-explorers.html` 會自動轉往新位置。課程內可點「教材首頁」返回入口。
 - 學生瀏覽與下載學生教材不需要登入。教師限定檔案與未發布的草稿放在私有儲存空間，只有教師可檢視。
 
 ## Supabase 設定（執行一次）
@@ -24,8 +24,9 @@
 將本資料夾根目錄的網站檔案上傳至 GitHub repository 根目錄，提交到 `main`。至少包含：
 
 - 新入口：`index.html`、`portal.css`、`portal-overrides.css`、`portal.js`
-- 舊課程入口：`bit-explorers.html`
-- 原有課程檔案：`app.js`、`cloud.js`、`cloud-config.js`、`course.css`、`content.js`、`engine.js`、`visuals.js`、`images/` 等
+- 舊課程網址相容入口：`bit-explorers.html`
+- 互動課程資料夾：`interactive-courses/bit-explorers/`、`interactive-courses/system-platforms/`
+- 根目錄共用服務與設定：`cloud.js`、`cloud-config.js`、`images/`、資料庫 SQL 等
 - 授權與設定文件
 
 同名檔案請選擇覆蓋；不要額外包一層資料夾。Actions 的 Pages workflow 顯示綠色勾勾後，打開網站首頁即可看到教材入口。
