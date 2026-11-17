@@ -12,7 +12,7 @@
 
 ## Supabase 設定
 
-1. 在 Supabase SQL Editor 執行專案根目錄的 `system-platforms-progress.sql` 一次。
+1. 在 Supabase SQL Editor 執行專案根目錄最新的 `system-platforms-progress.sql`。更新此功能時，請重新執行最新版。
 2. 將本資料夾三個網站檔上傳到 GitHub 的 `interactive-courses/system-platforms/`。
 3. 將更新後的 `cloud.js` 與新 SQL 檔上傳到 GitHub 專案根目錄。
 4. 學生透過課程頁登入五位數班級座號；教師使用相同教師帳號。教師可以查看該班每人的分數、完成任務、提示數和作答明細。

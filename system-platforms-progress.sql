@@ -93,7 +93,8 @@ language plpgsql stable security definer set search_path = public as $$
 begin
   if target_course <> 'system-platforms' then raise exception 'unsupported course'; end if;
   if not public.is_teacher_of(target_class) and not exists (
-    select 1 from class_members where class_id = target_class and student_id = auth.uid()
+    select 1 from public.class_members mine
+    where mine.class_id = target_class and mine.student_id = auth.uid()
   ) then raise exception 'class member only'; end if;
   return query
     select p.id, p.display_name,
