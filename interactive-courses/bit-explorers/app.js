@@ -71,8 +71,9 @@ async function renderTeacher(profile){
  if(!links.length)html+='<p>目前沒有班級。先輸入班級名稱和三位班級碼。</p>';
  for(const link of links){
   const c=link.classes;if(!c)continue;
-  const rows=await cloud.teacherClass(c.id);exportRows.set(c.id,{classInfo:c,rows});
+  const rows=await cloud.teacherClass(c.id);let systemRows=[],systemRowsError='';try{systemRows=await cloud.teacherCourseClass(c.id,'system-platforms');}catch(e){systemRowsError=e.message||String(e);}exportRows.set(c.id,{classInfo:c,rows,systemRows});
   html+='<h2>'+esc(c.name)+' <small>班級碼：'+esc(c.class_code||'尚未設定')+'</small></h2><div class="teacher-roster-actions"><button type="button" class="remove-students" data-remove-class="'+esc(c.id)+'" data-class-name="'+esc(c.name)+'">刪除所選學生</button><span class="meta">刪除只會移出本班名單，不會刪除登入帳號或學習進度。</span></div><button type="button" class="export-excel" data-export-class="'+esc(c.id)+'">下載 Excel 分數表</button><div class="scroll"><table><thead><tr><th><input type="checkbox" data-select-all-class="'+esc(c.id)+'" aria-label="選取此班全部學生"></th><th>學生座號</th><th>任務進度</th><th>系統檢核分數</th><th>課程狀態</th><th>作答紀錄</th></tr></thead><tbody>'+rows.map(s=>{const x=s.state?.metrics||{},done=!!s.state?.state?.completed,hasProgress=!!s.updated_at;return '<tr><td><input type="checkbox" data-select-student data-student-id="'+esc(s.student_id)+'" data-class="'+esc(c.id)+'" aria-label="選取座號 '+esc(s.display_name)+'"></td><td>'+esc(s.display_name)+'</td><td>'+(x.progress??0)+'%</td><td><strong>'+(x.score??0)+'／100</strong></td><td>'+(done?'已完成':hasProgress?'進行中':'尚未開始')+'</td><td>'+teacherAnswerDetails(s)+'</td></tr>';}).join('')+'</tbody></table></div>';
+  html+='<h3>系統平臺探險隊</h3>'+(systemRowsError?'<p class="meta">系統平臺課程資料尚未載入：'+esc(systemRowsError)+'</p>':'<div class="scroll"><table><thead><tr><th>學生座號</th><th>任務進度</th><th>系統檢核分數</th><th>課程狀態</th><th>作答紀錄</th></tr></thead><tbody>'+systemRows.map(s=>{const x=s.state||{},history=(x.history||[]).filter(h=>h.zone!==undefined),done=Array.isArray(x.done)?x.done.length:0;return '<tr><td>'+esc(s.display_name)+'</td><td>'+(Number(x.progress)||0)+'%</td><td><strong>'+(Number(x.score)||0)+'／100</strong></td><td>'+(done>=6?'已完成':s.updated_at?'進行中':'尚未開始')+'</td><td><details><summary>查看明細</summary><p>已完成 '+done+'／6 個章末檢核 · 提示 '+(Number(x.hints)||0)+' 次 · 最後更新 '+(s.updated_at?new Date(s.updated_at).toLocaleString('zh-TW'):'—')+'</p><ol>'+(history.slice(-120).map(h=>'<li>'+esc(h.zone+1)+'-'+esc(h.mission+1)+'：'+(h.ok?'完成':'再試')+' · '+esc(h.answer??'')+' · '+(h.at?new Date(h.at).toLocaleString('zh-TW'):'')+'</li>').join('')||'<li>尚無作答</li>')+'</ol></details></td></tr>';}).join('')+'</tbody></table></div>');
  }
  html+='</div>';$('#app').innerHTML=html;
  $('#logout').onclick=async()=>{await cloud.logout();loginScreen();};
@@ -93,7 +94,10 @@ async function renderTeacher(profile){
    for(const s of item.rows){const m=s.state?.metrics||{};aoa.push([s.display_name,m.progress??0,m.score??0,s.state?.state?.completed?'已完成':s.updated_at?'進行中':'尚未開始',m.done??0,m.totalSteps??0,s.updated_at?new Date(s.updated_at).toLocaleString('zh-TW'):'']);}
    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:14},{wch:12},{wch:16},{wch:12},{wch:12},{wch:12},{wch:22}];
    if(item.rows.length)ws['!autofilter']={ref:'A5:G'+(5+item.rows.length)};
-   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'學生分數');
+   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'位元探險隊');
+   const sysAoa=[['班級',c.name],['班級碼',c.class_code||''],[],['學生座號','任務進度','系統檢核分數','課程狀態','完成章末檢核','提示次數','最後更新時間']];
+   for(const s of item.systemRows||[]){const x=s.state||{},done=Array.isArray(x.done)?x.done.length:0;sysAoa.push([s.display_name,Number(x.progress)||0,Number(x.score)||0,done>=6?'已完成':s.updated_at?'進行中':'尚未開始',done,Number(x.hints)||0,s.updated_at?new Date(s.updated_at).toLocaleString('zh-TW'):'']);}
+   const sysWs=XLSX.utils.aoa_to_sheet(sysAoa);sysWs['!cols']=[{wch:14},{wch:12},{wch:16},{wch:12},{wch:16},{wch:12},{wch:22}];if(item.systemRows?.length)sysWs['!autofilter']={ref:'A4:G'+(4+item.systemRows.length)};XLSX.utils.book_append_sheet(wb,sysWs,'系統平臺探險隊');
    const safeName=String(c.name||'班級').replace(/[\/:*?"<>|]/g,'_');XLSX.writeFile(wb,(c.class_code||'班級')+'_'+safeName+'_學生分數.xlsx');status('Excel 分數表已下載。');
   }catch(e){status('Excel 匯出失敗：'+esc(e.message));}
  });
