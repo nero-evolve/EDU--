@@ -54,7 +54,9 @@ export async function removeClassMembers(classId,studentIds){const c=await db();
 export async function teacherApplicationStatus(){const c=await db();const {data,error}=await c.rpc('teacher_application_status');if(error)throw error;return data;}
 export async function isSiteAdmin(){const c=await db();const {data,error}=await c.rpc('is_site_admin');if(error)throw error;return !!data;}
 export async function adminTeacherApplications(){const c=await db();const {data,error}=await c.rpc('admin_teacher_applications');if(error)throw error;return data||[];}
+export async function adminTeacherAccounts(){const c=await db();const {data,error}=await c.rpc('admin_teacher_accounts');if(error)throw error;return data||[];}
 export async function reviewTeacherApplication(userId,approve){const c=await db();const {error}=await c.rpc('review_teacher_application',{target_user:userId,approve});if(error)throw error;}
+export async function deleteTeacherAccount(userId){const c=await db();const {data,error}=await c.functions.invoke('delete-teacher',{body:{user_id:userId}});if(error){let message=error.message;try{const details=await error.context.json();message=details.error||message;}catch{}throw Error(message);}if(!data?.ok)throw Error(data?.error||'刪除教師帳號失敗。');return data;}
 const validCourse=slug=>{if(!['system-platforms'].includes(slug))throw Error('不支援的課程代碼。');return slug;};
 export async function loadCourseProgress(slug){const c=await db();slug=validCourse(slug);const {data,error}=await c.from('course_progress').select('state,revision,updated_at').eq('course_slug',slug).maybeSingle();if(error)throw error;return data||null;}
 export async function saveCourseProgress(slug,row){const c=await db();slug=validCourse(slug);const {error}=await c.rpc('save_course_progress',{target_course:slug,payload:row.state,client_revision:row.revision,client_updated_at:new Date(row.updatedMs).toISOString()});if(error)throw error;}

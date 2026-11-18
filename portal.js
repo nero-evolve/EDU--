@@ -1,8 +1,8 @@
-import * as cloud from './cloud.js?v=20261118-teacher-approval-v2';
+import * as cloud from './cloud.js?v=20261118-teacher-approval-v3';
 
 const $=s=>document.querySelector(s), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STUDENT_BUCKET='learning-materials', TEACHER_BUCKET='teacher-materials';
-let materials=[], currentUser=null, editing=null, queuedFiles=[],isSiteAdminUser=false,teacherApplicationsCache=[],teacherApplicationsError='';
+let materials=[], currentUser=null, editing=null, queuedFiles=[],isSiteAdminUser=false,teacherApplicationsCache=[],teacherApplicationsError='',teacherAccountsCache=[],teacherAccountsError='';
 const gradeName=n=>({7:'七年級',8:'八年級',9:'九年級'}[Number(n)]||'');
 const typeName={worksheet:'學習單',lesson:'教材',slides:'簡報',video:'影片',image:'圖片',other:'其他'};
 
@@ -43,7 +43,12 @@ function teacherRegister(message=''){
 }
 function teacherApplicationPanel(){
   if(!isSiteAdminUser)return '';
-  return '<section class="teacher-applications"><h3>教師帳號審核</h3>'+(teacherApplicationsError?'<p class="form-error">申請清單載入失敗：'+esc(teacherApplicationsError)+'</p>':teacherApplicationsCache.length?'<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>申請者</th><th>Email</th><th>任教單位</th><th>申請說明</th><th>狀態</th><th>審核</th></tr></thead><tbody>'+teacherApplicationsCache.map(a=>'<tr><td>'+esc(a.display_name||'')+'</td><td>'+esc(a.email||'')+'</td><td>'+esc(a.institution||'')+'</td><td>'+esc(a.note||'')+'</td><td>'+(a.status==='pending'?'待審核':a.status==='approved'?'已核准':'未核准')+(a.email_confirmed?' · 信箱已驗證':' · 信箱未驗證')+'</td><td>'+(a.status==='pending'?'<button class="small-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="true">核准</button> <button class="danger-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="false">拒絕</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="meta">目前沒有教師申請。</p>')+'</section>';
+  return '<section class="teacher-applications"><h3>待審教師申請</h3>'+(teacherApplicationsError?'<p class="form-error">申請清單載入失敗：'+esc(teacherApplicationsError)+'</p>':teacherApplicationsCache.length?'<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>申請者</th><th>Email</th><th>任教單位</th><th>申請說明</th><th>狀態</th><th>審核</th></tr></thead><tbody>'+teacherApplicationsCache.map(a=>'<tr><td>'+esc(a.display_name||'')+'</td><td>'+esc(a.email||'')+'</td><td>'+esc(a.institution||'')+'</td><td>'+esc(a.note||'')+'</td><td>待審核'+(a.email_confirmed?' · 信箱已驗證':' · 信箱未驗證')+'</td><td><button class="small-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="true">核准</button> <button class="danger-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="false">拒絕</button></td></tr>').join('')+'</tbody></table></div>':'<p class="meta">目前沒有待審申請。</p>')+'</section>';
+}
+
+function teacherAccountsPanel(){
+  if(!isSiteAdminUser)return '';
+  return '<section class="teacher-applications teacher-accounts"><h3>已核准教師管理</h3><p class="meta">可刪除沒有班級、教材或評語的教師帳號；仍有資料時，系統會阻止刪除並列出需要先處理的項目。</p>'+(teacherAccountsError?'<p class="form-error">教師清單載入失敗：'+esc(teacherAccountsError)+'</p>':teacherAccountsCache.length?'<div class="teacher-table-wrap"><table class="teacher-table teacher-account-table"><thead><tr><th>教師</th><th>Email</th><th>任教單位</th><th>班級</th><th>教材</th><th>評語</th><th>管理</th></tr></thead><tbody>'+teacherAccountsCache.map(t=>'<tr><td>'+esc(t.display_name||'')+'</td><td>'+esc(t.email||'')+'</td><td>'+esc(t.institution||'—')+'</td><td>'+Number(t.class_count||0)+'</td><td>'+Number(t.material_count||0)+'</td><td>'+Number(t.comment_count||0)+'</td><td><button class="danger-btn" data-delete-teacher="'+esc(t.user_id)+'" data-teacher-name="'+esc(t.display_name||t.email||'教師')+'">刪除帳號</button></td></tr>').join('')+'</tbody></table></div>':'<p class="meta">目前沒有其他已核准教師。</p>')+'</section>';
 }
 
 function teacherForm(row=null){
@@ -58,17 +63,18 @@ async function loadTeacherMaterials(){
   try{
     const c=await cloud.db(),[profile,session]=await Promise.all([cloud.profile(),cloud.session()]);
     if(profile.role!=='teacher')throw Error('教師帳號尚未通過審核。');
-    currentUser=session.user;isSiteAdminUser=false;teacherApplicationsCache=[];teacherApplicationsError='';
-    try{isSiteAdminUser=await cloud.isSiteAdmin();if(isSiteAdminUser)teacherApplicationsCache=await cloud.adminTeacherApplications();}catch(e){teacherApplicationsError=e.message||String(e);console.warn('教師審核清單暫不可用',e);}
+    currentUser=session.user;isSiteAdminUser=false;teacherApplicationsCache=[];teacherApplicationsError='';teacherAccountsCache=[];teacherAccountsError='';
+    try{isSiteAdminUser=await cloud.isSiteAdmin();if(isSiteAdminUser){try{teacherApplicationsCache=await cloud.adminTeacherApplications();}catch(e){teacherApplicationsError=e.message||String(e);}try{teacherAccountsCache=await cloud.adminTeacherAccounts();}catch(e){teacherAccountsError=e.message||String(e);}}}catch(e){teacherApplicationsError=e.message||String(e);console.warn('教師管理清單暫不可用',e);}
     const {data,error}=await c.from('teaching_materials').select('*').order('grade').order('subject').order('title');if(error)throw error;
     materials=data||[];renderTeacherMaterials(profile.display_name);
   }catch(e){$('#teacher-root').innerHTML=message('教材管理載入失敗：'+e.message,'error');}
 }
 function renderTeacherMaterials(name='老師'){
-  $('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：'+esc(name)+'　·　教材 '+materials.length+' 份</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherApplicationPanel()+(isSiteAdminUser?'<div class="application-refresh"><button id="refresh-applications" class="small-btn">重新整理申請</button></div>':'')+teacherForm()+teacherTable();
+  $('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：'+esc(name)+'　·　教材 '+materials.length+' 份</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherApplicationPanel()+teacherAccountsPanel()+(isSiteAdminUser?'<div class="application-refresh"><button id="refresh-applications" class="small-btn">重新整理申請／教師清單</button></div>':'')+teacherForm()+teacherTable();
   $('#portal-logout').onclick=async()=>{await cloud.logout();currentUser=null;queuedFiles=[];teacherLogin();};
   if($('#refresh-applications'))$('#refresh-applications').onclick=loadTeacherMaterials;
   $('#teacher-root').querySelectorAll('[data-review-teacher]').forEach(b=>b.onclick=async()=>{const approve=b.dataset.approve==='true',userId=b.dataset.reviewTeacher;if(!confirm(approve?'核准此教師帳號？核准後即可建立班級並管理自己的教材。':'拒絕此教師申請？'))return;try{await cloud.reviewTeacherApplication(userId,approve);await loadTeacherMaterials();}catch(e){alert('審核失敗：'+e.message);}});
+  $('#teacher-root').querySelectorAll('[data-delete-teacher]').forEach(b=>b.onclick=async()=>{const name=b.dataset.teacherName;if(!confirm('確定永久刪除教師「'+name+'」的登入帳號？若此教師仍有班級、教材或評語，系統會阻止刪除。此操作無法復原。'))return;b.disabled=true;try{await cloud.deleteTeacherAccount(b.dataset.deleteTeacher);alert('教師帳號已刪除。');await loadTeacherMaterials();}catch(e){alert('無法刪除教師帳號：'+e.message);b.disabled=false;}});
   bindMaterialForm();
   $('#teacher-root').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{queuedFiles=[];const row=materials.find(x=>x.id===b.dataset.edit);if(!row||row.created_by!==currentUser.id){alert('只有上傳者可以編輯這份教材。');return;}$('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：教材管理</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherForm(row)+teacherTable();$('#portal-logout').onclick=async()=>{await cloud.logout();currentUser=null;queuedFiles=[];teacherLogin();};bindMaterialForm();$('#cancel-edit').onclick=()=>{queuedFiles=[];renderTeacherMaterials();};});
   $('#teacher-root').querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteMaterial(b.dataset.delete));

@@ -67,11 +67,39 @@ as $$
 begin
   if not public.is_site_admin() then raise exception 'admin only'; end if;
   return query
-    select a.user_id,p.display_name,u.email::text,a.institution,a.note,a.status,a.submitted_at,(u.email_confirmed_at is not null)
+    select a.user_id::uuid,
+           p.display_name::text,
+           u.email::text,
+           a.institution::text,
+           a.note::text,
+           a.status::text,
+           a.submitted_at::timestamptz,
+           (u.email_confirmed_at is not null)::boolean
     from public.teacher_applications a
     join public.profiles p on p.id=a.user_id
     join auth.users u on u.id=a.user_id
+    where a.status='pending'
     order by (a.status='pending') desc,a.submitted_at desc;
+end $$;
+
+create or replace function public.admin_teacher_accounts()
+returns table(user_id uuid,display_name text,email text,institution text,created_at timestamptz,class_count bigint,material_count bigint,comment_count bigint)
+language plpgsql stable security definer set search_path=public
+as $$
+begin
+  if not public.is_site_admin() then raise exception 'admin only'; end if;
+  return query
+    select p.id::uuid,p.display_name::text,u.email::text,coalesce(a.institution,'')::text,
+           p.created_at::timestamptz,
+           (select count(*) from public.classes c where c.teacher_id=p.id)::bigint,
+           (select count(*) from public.teaching_materials m where m.created_by=p.id)::bigint,
+           (select count(*) from public.teacher_comments tc where tc.teacher_id=p.id)::bigint
+    from public.profiles p
+    join auth.users u on u.id=p.id
+    left join public.teacher_applications a on a.user_id=p.id
+    where p.role='teacher'
+      and not exists(select 1 from public.site_admins sa where sa.user_id=p.id)
+    order by p.display_name;
 end $$;
 
 create or replace function public.review_teacher_application(target_user uuid,approve boolean)
@@ -87,8 +115,8 @@ begin
   update public.profiles set role=case when approve then 'teacher' else 'student' end where id=target_user;
 end $$;
 
-revoke all on function public.teacher_application_status(),public.admin_teacher_applications(),public.review_teacher_application(uuid,boolean) from public,anon;
-grant execute on function public.teacher_application_status(),public.admin_teacher_applications(),public.review_teacher_application(uuid,boolean) to authenticated;
+revoke all on function public.teacher_application_status(),public.admin_teacher_applications(),public.admin_teacher_accounts(),public.review_teacher_application(uuid,boolean) from public,anon;
+grant execute on function public.teacher_application_status(),public.admin_teacher_applications(),public.admin_teacher_accounts(),public.review_teacher_application(uuid,boolean) to authenticated;
 
 -- One-time setup: replace the address with the existing Supabase login email
 -- for the site owner, then run this insert. Do not make this callable by users.
@@ -210,3 +238,5 @@ create policy teaching_materials_teacher_read_private_files on storage.objects f
 
 revoke all on function public.teacher_visible_classes(),public.teacher_class_progress(uuid),public.teacher_course_progress(uuid,text) from public,anon;
 grant execute on function public.teacher_visible_classes(),public.teacher_class_progress(uuid),public.teacher_course_progress(uuid,text) to authenticated;
+
+notify pgrst, 'reload schema';

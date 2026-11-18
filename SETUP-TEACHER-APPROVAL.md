@@ -20,6 +20,18 @@
 - 教師可檢視各班名單、學習進度，以及已發布或草稿教材。
 - 只有班級建立者能移除該班學生；其他教師只能檢視並匯出成績。
 - 所有核准教師可下載教材；只有上傳者能編輯或刪除教材和 Storage 檔案。
+- 管理者可在「已核准教師管理」檢視教師及刪除帳號；若教師仍有班級、教材或評語，網站會阻止刪除，須先移轉或處理資料。
 - 現有教師帳號與教材不會被刪除；舊教材依 `created_by` 保留原上傳者的編輯權。
+
+## 部署教師帳號刪除功能
+
+此功能必須使用 Supabase Edge Function 的管理端金鑰刪除 Auth 使用者，不能只上傳 GitHub Pages 檔案。
+
+1. 將 `supabase/functions/delete-teacher/index.ts` 部署為 Supabase Edge Function，函式名稱使用 `delete-teacher`。可用 Supabase Dashboard 的 Edge Functions 編輯器建立並部署，或使用 Supabase CLI：`supabase functions deploy delete-teacher --project-ref 你的專案參照碼`。
+2. 在 Edge Function 的環境變數中確認 Supabase 提供 `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`。管理端金鑰只能留在 Supabase，絕不可寫進網站檔案或 GitHub。
+3. 執行最新版 `teacher-approval-ownership.sql`，建立待審申請清單與已核准教師清單 RPC。
+4. 將網站根目錄的 `cloud.js`、`portal.js`、`portal.css`、`index.html` 一併部署至 GitHub Pages。
+
+刪除只會處理沒有班級、教材與評語的教師帳號；有資料時會顯示數量並拒絕刪除，避免失去班級與教材的管理者。管理者帳號不會列入刪除清單。
 
 如果 SQL Editor 中替換 Email 後仍沒有管理者審核區，請確認該 Email 已存在於 Supabase Auth，再重新執行檔案中的 `site_admins` 初始設定 INSERT。
