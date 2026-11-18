@@ -33,14 +33,14 @@ export async function loginSeat(seat){
  await joinClassBySeat(seat);
  return data.session;
 }
-export async function signup(email,password,name,role,classCode){
- const c=await db();const {data,error}=await c.auth.signUp({email,password,options:{data:{display_name:name}}});if(error)throw error;
+export async function signup(email,password,name,role,classCode,institution='',applicationNote=''){
+ const c=await db();const options={display_name:name};if(role==='teacher')Object.assign(options,{teacher_application:true,institution,application_note:applicationNote});const {data,error}=await c.auth.signUp({email,password,options:{data:options}});if(error)throw error;
  if(data.session&&data.user&&classCode){const {error:e}=await c.rpc('join_class',{requested_code:classCode.trim().toUpperCase()});if(e)throw e;}
  return data.session;
 }
 export async function logout(){const c=await db();const {error}=await c.auth.signOut();if(error)throw error;}
-export async function profile(){const c=await db();const {data:{user},error:userError}=await c.auth.getUser();if(userError)throw userError;if(!user)throw Error('登入狀態已失效，請重新登入。');const {data,error}=await c.from('profiles').select('display_name,role').eq('id',user.id).single();if(error)throw error;return data;}
-export async function classes(){const c=await db();const u=(await c.auth.getUser()).data.user;const p=await c.from('profiles').select('role').eq('id',u.id).single();if(p.error)throw p.error;if(p.data.role==='teacher'){const {data,error}=await c.from('classes').select('id,name,class_code,invite_code').eq('teacher_id',u.id).order('created_at');if(error)throw error;return (data||[]).map(x=>({class_id:x.id,classes:x}));}const {data,error}=await c.from('class_members').select('class_id,classes(id,name,class_code,invite_code)').order('created_at');if(error)throw error;return data||[];}
+export async function profile(){const c=await db();const {data:{user},error:userError}=await c.auth.getUser();if(userError)throw userError;if(!user)throw Error('登入狀態已失效，請重新登入。');const {data,error}=await c.from('profiles').select('display_name,role').eq('id',user.id).single();if(error)throw error;return {...data,id:user.id,email:user.email};}
+export async function classes(){const c=await db();const u=(await c.auth.getUser()).data.user;const p=await c.from('profiles').select('role').eq('id',u.id).single();if(p.error)throw p.error;if(p.data.role==='teacher'){const {data,error}=await c.rpc('teacher_visible_classes');if(error)throw error;return (data||[]).map(x=>({class_id:x.id,classes:x}));}const {data,error}=await c.from('class_members').select('class_id,classes(id,name,class_code,invite_code)').order('created_at');if(error)throw error;return data||[];}
 export async function saveProgress(row){const c=await db();const payload={state:row.state,metrics:row.metrics,first:row.first,best:row.best,finalScore:row.finalScore,feedback:row.feedback};const {error}=await c.rpc('save_student_progress',{payload,client_revision:row.revision,client_updated_at:new Date(row.updatedMs).toISOString()});if(error)throw error;}
 export async function loadProgress(){const c=await db();const {data,error}=await c.from('progress').select('state,revision,updated_at').maybeSingle();if(error)throw error;return data?{...data,state:data.state.state}:null;}
 export async function deleteProgress(){const c=await db();const {error}=await c.from('progress').delete().eq('student_id',(await c.auth.getUser()).data.user.id);if(error)throw error;}
@@ -51,6 +51,10 @@ export async function setTeacherScore(studentId,classId,score){const c=await db(
 export async function comment(studentId,classId,body){const c=await db();const {error}=await c.from('teacher_comments').upsert({student_id:studentId,class_id:classId,body,updated_at:new Date().toISOString()},{onConflict:'student_id,class_id'});if(error)throw error;}
 export async function createClass(name,classCode){const c=await db();const {data,error}=await c.rpc('create_class',{class_name:name,requested_class_code:classCode});if(error)throw error;return data;}
 export async function removeClassMembers(classId,studentIds){const c=await db();const {data,error}=await c.rpc('remove_students_from_class',{target_class:classId,target_students:studentIds});if(error)throw error;return data;}
+export async function teacherApplicationStatus(){const c=await db();const {data,error}=await c.rpc('teacher_application_status');if(error)throw error;return data;}
+export async function isSiteAdmin(){const c=await db();const {data,error}=await c.rpc('is_site_admin');if(error)throw error;return !!data;}
+export async function adminTeacherApplications(){const c=await db();const {data,error}=await c.rpc('admin_teacher_applications');if(error)throw error;return data||[];}
+export async function reviewTeacherApplication(userId,approve){const c=await db();const {error}=await c.rpc('review_teacher_application',{target_user:userId,approve});if(error)throw error;}
 const validCourse=slug=>{if(!['system-platforms'].includes(slug))throw Error('不支援的課程代碼。');return slug;};
 export async function loadCourseProgress(slug){const c=await db();slug=validCourse(slug);const {data,error}=await c.from('course_progress').select('state,revision,updated_at').eq('course_slug',slug).maybeSingle();if(error)throw error;return data||null;}
 export async function saveCourseProgress(slug,row){const c=await db();slug=validCourse(slug);const {error}=await c.rpc('save_course_progress',{target_course:slug,payload:row.state,client_revision:row.revision,client_updated_at:new Date(row.updatedMs).toISOString()});if(error)throw error;}

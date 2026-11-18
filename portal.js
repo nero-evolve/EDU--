@@ -1,8 +1,8 @@
-import * as cloud from './cloud.js?v=20261116-portal-v1';
+import * as cloud from './cloud.js?v=20261118-teacher-approval-v2';
 
 const $=s=>document.querySelector(s), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STUDENT_BUCKET='learning-materials', TEACHER_BUCKET='teacher-materials';
-let materials=[], currentUser=null, editing=null, queuedFiles=[];
+let materials=[], currentUser=null, editing=null, queuedFiles=[],isSiteAdminUser=false,teacherApplicationsCache=[];
 const gradeName=n=>({7:'七年級',8:'八年級',9:'九年級'}[Number(n)]||'');
 const typeName={worksheet:'學習單',lesson:'教材',slides:'簡報',video:'影片',image:'圖片',other:'其他'};
 
@@ -31,9 +31,19 @@ function bindImagePreviews(){
   document.querySelectorAll('[data-image-preview]').forEach(button=>button.onclick=()=>{const img=dialog.querySelector('img');img.src=button.dataset.imageSrc;img.alt=button.dataset.imageName||'';dialog.querySelector('p').textContent=button.dataset.imageName||'';dialog.showModal();});
 }
 
-function teacherLogin(){
-  $('#teacher-root').innerHTML='<section class="teacher-login"><h3>老師登入</h3><p>使用教材站的老師帳號登入。學生端只能瀏覽和下載已發布的教材。</p><form id="portal-login" class="login-form"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" required></label><p id="login-error" class="form-error"></p><button class="primary">登入教材管理</button></form></section>';
-  $('#portal-login').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.currentTarget),button=e.currentTarget.querySelector('button');button.disabled=true;$('#login-error').textContent='正在登入…';try{await cloud.login(form.get('email'),form.get('password'));const p=await cloud.profile();if(p.role!=='teacher'){await cloud.logout();throw Error('這個帳號沒有老師權限。');}const session=await cloud.session();currentUser=session.user;await loadTeacherMaterials();}catch(err){$('#login-error').textContent=err.message;button.disabled=false;}};
+function teacherLogin(message=''){
+  $('#teacher-root').innerHTML='<section class="teacher-login"><h3>教師登入</h3><p>登入後管理自己的班級與教材；其他教師的內容可檢視與下載。</p>'+(message?'<p class="form-error">'+esc(message)+'</p>':'')+'<form id="portal-login" class="login-form"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>密碼<input name="password" type="password" autocomplete="current-password" required></label><p id="login-error" class="form-error"></p><button class="primary">登入教師管理</button></form><button type="button" id="teacher-register-link" class="secondary-btn">申請教師帳號</button></section>';
+  $('#teacher-register-link').onclick=()=>teacherRegister();
+  $('#portal-login').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.currentTarget),button=e.currentTarget.querySelector('button');button.disabled=true;$('#login-error').textContent='正在登入…';try{await cloud.login(form.get('email'),form.get('password'));const p=await cloud.profile();if(p.role!=='teacher'){let application='none';try{application=await cloud.teacherApplicationStatus();}catch{}await cloud.logout();teacherLogin(application==='pending'?'帳號已建立，教師申請尚待管理員審核。':application==='rejected'?'教師申請未核准，請聯絡網站管理員。':'此帳號尚未取得教師權限。');return;}const session=await cloud.session();currentUser=session.user;await loadTeacherMaterials();}catch(err){$('#login-error').textContent=err.message;button.disabled=false;}};
+}
+function teacherRegister(message=''){
+  $('#teacher-root').innerHTML='<section class="teacher-login"><h3>申請教師帳號</h3><p>送出後先由網站管理員審核；核准前不會開放教師功能。</p>'+(message?'<p class="form-error">'+esc(message)+'</p>':'')+'<form id="teacher-register-form" class="login-form"><label>姓名<input name="name" maxlength="80" autocomplete="name" required></label><label>學校／任教單位<input name="institution" maxlength="120" required></label><label>Email<input name="email" type="email" autocomplete="email" required></label><label>設定密碼<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><label>申請說明<textarea name="note" maxlength="1000" rows="3" placeholder="簡單說明你的任教年級或使用需求"></textarea></label><p id="register-error" class="form-error"></p><button class="primary">送出教師申請</button></form><button type="button" id="back-to-teacher-login" class="secondary-btn">返回教師登入</button></section>';
+  $('#back-to-teacher-login').onclick=()=>teacherLogin();
+  $('#teacher-register-form').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.currentTarget),button=e.currentTarget.querySelector('button');button.disabled=true;$('#register-error').textContent='正在送出…';try{const result=await cloud.signup(form.get('email'),form.get('password'),form.get('name'),'teacher',null,form.get('institution'),form.get('note'));if(result)await cloud.logout();teacherLogin('申請已送出。管理員審核通過後即可登入。');}catch(err){$('#register-error').textContent=err.message;button.disabled=false;}};
+}
+function teacherApplicationPanel(){
+  if(!isSiteAdminUser)return '';
+  return '<section class="teacher-applications"><h3>教師帳號審核</h3>'+(teacherApplicationsCache.length?'<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>申請者</th><th>Email</th><th>任教單位</th><th>申請說明</th><th>狀態</th><th>審核</th></tr></thead><tbody>'+teacherApplicationsCache.map(a=>'<tr><td>'+esc(a.display_name||'')+'</td><td>'+esc(a.email||'')+'</td><td>'+esc(a.institution||'')+'</td><td>'+esc(a.note||'')+'</td><td>'+(a.status==='pending'?'待審核':a.status==='approved'?'已核准':'未核准')+(a.email_confirmed?' · 信箱已驗證':' · 信箱未驗證')+'</td><td>'+(a.status==='pending'?'<button class="small-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="true">核准</button> <button class="danger-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="false">拒絕</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="meta">目前沒有教師申請。</p>')+'</section>';
 }
 
 function teacherForm(row=null){
@@ -42,19 +52,27 @@ function teacherForm(row=null){
 }
 function teacherTable(){
   if(!materials.length)return '<div class="empty-state">還沒有教材。可用上方表單新增第一份教材。</div>';
-  return '<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>教材</th><th>年級／科目</th><th>存取範圍</th><th>狀態</th><th>檔案</th><th>管理</th></tr></thead><tbody>'+materials.map(r=>'<tr><td><b>'+esc(r.title)+'</b>'+(r.unit?'<br><span class="subject-label">'+esc(r.unit)+'</span>':'')+'</td><td>'+gradeName(r.grade)+'<br>'+esc(r.subject)+'</td><td>'+(r.audience==='student'?'學生可看':'<span class="private-chip">老師限定</span>')+'</td><td>'+(r.is_published?'已發布':'草稿')+'</td><td><a class="quiet-link" href="#" data-download="'+esc(r.id)+'">下載</a><br><span class="subject-label">'+esc(r.original_name||'')+'</span></td><td><div class="table-actions"><button class="small-btn" data-edit="'+esc(r.id)+'">編輯</button><button class="danger-btn" data-delete="'+esc(r.id)+'">刪除</button></div></td></tr>').join('')+'</tbody></table></div>';
+  return '<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>教材</th><th>年級／科目</th><th>存取範圍</th><th>狀態</th><th>檔案</th><th>管理</th></tr></thead><tbody>'+materials.map(r=>{const owns=r.created_by===currentUser?.id;return '<tr><td><b>'+esc(r.title)+'</b>'+(r.unit?'<br><span class="subject-label">'+esc(r.unit)+'</span>':'')+'</td><td>'+gradeName(r.grade)+'<br>'+esc(r.subject)+'</td><td>'+(r.audience==='student'?'學生可看':'<span class="private-chip">老師限定</span>')+'</td><td>'+(r.is_published?'已發布':'草稿')+'</td><td><a class="quiet-link" href="#" data-download="'+esc(r.id)+'">下載</a><br><span class="subject-label">'+esc(r.original_name||'')+'</span></td><td>'+(owns?'<div class="table-actions"><button class="small-btn" data-edit="'+esc(r.id)+'">編輯</button><button class="danger-btn" data-delete="'+esc(r.id)+'">刪除</button></div>':'<span class="subject-label">僅檢視</span>')+'</td></tr>';}).join('')+'</tbody></table></div>';
 }
 async function loadTeacherMaterials(){
-  try{const c=await cloud.db();const [profile,session]=await Promise.all([cloud.profile(),cloud.session()]);if(profile.role!=='teacher')throw Error('老師帳號才能管理教材。');currentUser=session.user;const {data,error}=await c.from('teaching_materials').select('*').order('grade').order('subject').order('title');if(error)throw error;materials=data||[];renderTeacherMaterials(profile.display_name);}
-  catch(e){$('#teacher-root').innerHTML=message('教材管理載入失敗：'+e.message,'error');}
+  try{
+    const c=await cloud.db(),[profile,session]=await Promise.all([cloud.profile(),cloud.session()]);
+    if(profile.role!=='teacher')throw Error('教師帳號尚未通過審核。');
+    currentUser=session.user;isSiteAdminUser=false;teacherApplicationsCache=[];
+    try{isSiteAdminUser=await cloud.isSiteAdmin();if(isSiteAdminUser)teacherApplicationsCache=await cloud.adminTeacherApplications();}catch(e){console.warn('教師審核清單暫不可用',e);}
+    const {data,error}=await c.from('teaching_materials').select('*').order('grade').order('subject').order('title');if(error)throw error;
+    materials=data||[];renderTeacherMaterials(profile.display_name);
+  }catch(e){$('#teacher-root').innerHTML=message('教材管理載入失敗：'+e.message,'error');}
 }
 function renderTeacherMaterials(name='老師'){
-  $('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：'+esc(name)+'　·　教材 '+materials.length+' 份</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherForm()+teacherTable();
+  $('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：'+esc(name)+'　·　教材 '+materials.length+' 份</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherApplicationPanel()+(isSiteAdminUser?'<div class="application-refresh"><button id="refresh-applications" class="small-btn">重新整理申請</button></div>':'')+teacherForm()+teacherTable();
   $('#portal-logout').onclick=async()=>{await cloud.logout();currentUser=null;queuedFiles=[];teacherLogin();};
+  if($('#refresh-applications'))$('#refresh-applications').onclick=loadTeacherMaterials;
+  $('#teacher-root').querySelectorAll('[data-review-teacher]').forEach(b=>b.onclick=async()=>{const approve=b.dataset.approve==='true',userId=b.dataset.reviewTeacher;if(!confirm(approve?'核准此教師帳號？核准後即可建立班級並管理自己的教材。':'拒絕此教師申請？'))return;try{await cloud.reviewTeacherApplication(userId,approve);await loadTeacherMaterials();}catch(e){alert('審核失敗：'+e.message);}});
   bindMaterialForm();
-  $('#teacher-root').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{queuedFiles=[];const row=materials.find(x=>x.id===b.dataset.edit);$('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：教材管理</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherForm(row)+teacherTable();$('#portal-logout').onclick=async()=>{await cloud.logout();currentUser=null;queuedFiles=[];teacherLogin();};bindMaterialForm();$('#cancel-edit').onclick=()=>{queuedFiles=[];renderTeacherMaterials();};});
+  $('#teacher-root').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{queuedFiles=[];const row=materials.find(x=>x.id===b.dataset.edit);if(!row||row.created_by!==currentUser.id){alert('只有上傳者可以編輯這份教材。');return;}$('#teacher-root').innerHTML='<div class="teacher-bar"><p>登入者：教材管理</p><button id="portal-logout" class="secondary-btn">登出</button></div>'+teacherForm(row)+teacherTable();$('#portal-logout').onclick=async()=>{await cloud.logout();currentUser=null;queuedFiles=[];teacherLogin();};bindMaterialForm();$('#cancel-edit').onclick=()=>{queuedFiles=[];renderTeacherMaterials();};});
   $('#teacher-root').querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteMaterial(b.dataset.delete));
-  $('#teacher-root').querySelectorAll('[data-download]').forEach(b=>b.onclick=async e=>{e.preventDefault();const win=window.open('about:blank','_blank');try{const row=materials.find(x=>x.id===b.dataset.download),c=await cloud.db();let url;if(row.storage_bucket===STUDENT_BUCKET)url=publicUrl(row);else{const {data,error}=await c.storage.from(row.storage_bucket).createSignedUrl(row.storage_path,600,{download:row.original_name});if(error)throw error;url=data.signedUrl;}if(win)win.location=url;else alert('瀏覽器封鎖了下載視窗，請允許此網站開啟新視窗後再試。');}catch(err){if(win)win.close();alert('下載失敗：'+err.message);}});
+  $('#teacher-root').querySelectorAll('[data-download]').forEach(b=>b.onclick=async e=>{e.preventDefault();const win=window.open('about:blank','_blank');try{const row=materials.find(x=>x.id===b.dataset.download),c=await cloud.db();let url;if(row.storage_bucket===STUDENT_BUCKET)url=publicUrl(row);else{const {data,error}=await c.storage.from(row.storage_bucket).createSignedUrl(row.storage_path,600,{download:row.original_name});if(error)throw error;url=data.signedUrl;}if(win)win.location=url;else alert('瀏覽器封鎖下載視窗，請允許此網站開啟新視窗後再試。');}catch(err){if(win)win.close();alert('下載失敗：'+err.message);}});
 }
 
 async function bindMaterialForm(){
@@ -93,7 +111,7 @@ async function bindMaterialForm(){
 }
 
 async function deleteMaterial(id){
-  const row=materials.find(x=>x.id===id);if(!row||!confirm('刪除「'+row.title+'」及其上傳檔案？此操作無法復原。'))return;
+  const row=materials.find(x=>x.id===id);if(!row)return;if(row.created_by!==currentUser?.id){alert('只有上傳者可以刪除這份教材。');return;}if(!confirm('刪除「'+row.title+'」及其上傳檔案？此操作無法復原。'))return;
   try{const c=await cloud.db(),{error:storageError}=await c.storage.from(row.storage_bucket).remove([row.storage_path]);if(storageError)throw storageError;const {error}=await c.from('teaching_materials').delete().eq('id',id);if(error)throw error;await loadTeacherMaterials();}catch(e){alert('刪除失敗：'+e.message);}
 }
 

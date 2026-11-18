@@ -37,7 +37,7 @@ where id = (select id from auth.users where email = 'teacher@example.edu');
 
 - 學生座號只作為識別碼，系統以座號衍生內部登入憑證；不會要求學生輸入 Email 或密碼。
 - 依管理者選擇的免密碼方式，知道座號的人可能以該座號登入，因此不適合保存敏感個資或用作高風險正式測驗。
-- 教師端只會列出該教師已建立班級中的學生；每次作答、提示、目前步驟和學習進度都會同步到 Supabase。教師可展開作答紀錄查看逐題答案，並儲存 0–100 的「老師核定分數」；留空並儲存會回復系統檢核分數。
+- 教師端預設只顯示自己建立的班級。完成教師申請審核與資料權限設定後，所有核准教師可查看各班名單與進度；只有班級建立者能移除學生。教材庫中所有核准教師可查看、下載教材，只有上傳者可編輯或刪除。詳細設定見 `SETUP-TEACHER-APPROVAL.md`。
 - 教師可勾選學生並從班級名單移除；這不會刪除學生登入帳號或既有學習紀錄。學生之後若再次用座號登入，仍可能自動加入班級。
 - 位元探險隊課程程式放在 `interactive-courses/bit-explorers/`；教學圖解由該資料夾的 `visuals.js` 以 SVG 繪製。根目錄的 `cloud.js` 與 `cloud-config.js` 是教材站和課程共用的 Supabase 連線。
 - 章末檢核分數由六關檢核題平均計算。練習答錯、使用提示與重試都不扣分；老師仍可查看完成度、檢核分數和評語。
@@ -45,7 +45,7 @@ where id = (select id from auth.users where email = 'teacher@example.edu');
 ## 部署到 GitHub Pages
 
 1. 先確認 `cloud-config.js` 使用的是 Supabase Project URL 和 Publishable/anon key，不可放 Secret/service-role key。
-2. 先在 Supabase SQL Editor 執行 `teacher-student-management.sql`，建立「從班級名單移除所選學生」功能所需的安全資料庫函式。舊的 `teacher-score-overrides.sql` 資料表可保留，但新版教師介面不再使用老師核定分數。
+2. 先在 Supabase SQL Editor 執行 `teacher-student-management.sql`，建立「從班級名單移除所選學生」功能所需的安全資料庫函式。若要開放新的教師申請與審核，再依 `SETUP-TEACHER-APPROVAL.md` 完成設定，並執行 `teacher-approval-ownership.sql`。
 3. 開啟你的 GitHub 專案 `nero-evolve/EDU--`，選 Code → Add file → Upload files。
 4. 將本資料夾中的網站檔案上傳至 repository 根目錄，保留 `index.html` 在根目錄；若 GitHub 詢問同名檔案覆蓋，確認後提交變更。不要把整個資料夾再包一層上傳。
 5. 在 Commit changes 提交到 `main`。接著選 Actions，查看最新的 `pages build and deployment` 工作流程；出現綠色勾勾後，開啟 Settings → Pages 顯示的網址。
