@@ -67,7 +67,7 @@ as $$
 begin
   if not public.is_site_admin() then raise exception 'admin only'; end if;
   return query
-    select a.user_id,p.display_name,u.email,a.institution,a.note,a.status,a.submitted_at,(u.email_confirmed_at is not null)
+    select a.user_id,p.display_name,u.email::text,a.institution,a.note,a.status,a.submitted_at,(u.email_confirmed_at is not null)
     from public.teacher_applications a
     join public.profiles p on p.id=a.user_id
     join auth.users u on u.id=a.user_id

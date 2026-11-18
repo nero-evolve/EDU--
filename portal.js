@@ -2,7 +2,7 @@ import * as cloud from './cloud.js?v=20261118-teacher-approval-v2';
 
 const $=s=>document.querySelector(s), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STUDENT_BUCKET='learning-materials', TEACHER_BUCKET='teacher-materials';
-let materials=[], currentUser=null, editing=null, queuedFiles=[],isSiteAdminUser=false,teacherApplicationsCache=[];
+let materials=[], currentUser=null, editing=null, queuedFiles=[],isSiteAdminUser=false,teacherApplicationsCache=[],teacherApplicationsError='';
 const gradeName=n=>({7:'七年級',8:'八年級',9:'九年級'}[Number(n)]||'');
 const typeName={worksheet:'學習單',lesson:'教材',slides:'簡報',video:'影片',image:'圖片',other:'其他'};
 
@@ -43,7 +43,7 @@ function teacherRegister(message=''){
 }
 function teacherApplicationPanel(){
   if(!isSiteAdminUser)return '';
-  return '<section class="teacher-applications"><h3>教師帳號審核</h3>'+(teacherApplicationsCache.length?'<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>申請者</th><th>Email</th><th>任教單位</th><th>申請說明</th><th>狀態</th><th>審核</th></tr></thead><tbody>'+teacherApplicationsCache.map(a=>'<tr><td>'+esc(a.display_name||'')+'</td><td>'+esc(a.email||'')+'</td><td>'+esc(a.institution||'')+'</td><td>'+esc(a.note||'')+'</td><td>'+(a.status==='pending'?'待審核':a.status==='approved'?'已核准':'未核准')+(a.email_confirmed?' · 信箱已驗證':' · 信箱未驗證')+'</td><td>'+(a.status==='pending'?'<button class="small-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="true">核准</button> <button class="danger-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="false">拒絕</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="meta">目前沒有教師申請。</p>')+'</section>';
+  return '<section class="teacher-applications"><h3>教師帳號審核</h3>'+(teacherApplicationsError?'<p class="form-error">申請清單載入失敗：'+esc(teacherApplicationsError)+'</p>':teacherApplicationsCache.length?'<div class="teacher-table-wrap"><table class="teacher-table"><thead><tr><th>申請者</th><th>Email</th><th>任教單位</th><th>申請說明</th><th>狀態</th><th>審核</th></tr></thead><tbody>'+teacherApplicationsCache.map(a=>'<tr><td>'+esc(a.display_name||'')+'</td><td>'+esc(a.email||'')+'</td><td>'+esc(a.institution||'')+'</td><td>'+esc(a.note||'')+'</td><td>'+(a.status==='pending'?'待審核':a.status==='approved'?'已核准':'未核准')+(a.email_confirmed?' · 信箱已驗證':' · 信箱未驗證')+'</td><td>'+(a.status==='pending'?'<button class="small-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="true">核准</button> <button class="danger-btn" data-review-teacher="'+esc(a.user_id)+'" data-approve="false">拒絕</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="meta">目前沒有教師申請。</p>')+'</section>';
 }
 
 function teacherForm(row=null){
@@ -58,8 +58,8 @@ async function loadTeacherMaterials(){
   try{
     const c=await cloud.db(),[profile,session]=await Promise.all([cloud.profile(),cloud.session()]);
     if(profile.role!=='teacher')throw Error('教師帳號尚未通過審核。');
-    currentUser=session.user;isSiteAdminUser=false;teacherApplicationsCache=[];
-    try{isSiteAdminUser=await cloud.isSiteAdmin();if(isSiteAdminUser)teacherApplicationsCache=await cloud.adminTeacherApplications();}catch(e){console.warn('教師審核清單暫不可用',e);}
+    currentUser=session.user;isSiteAdminUser=false;teacherApplicationsCache=[];teacherApplicationsError='';
+    try{isSiteAdminUser=await cloud.isSiteAdmin();if(isSiteAdminUser)teacherApplicationsCache=await cloud.adminTeacherApplications();}catch(e){teacherApplicationsError=e.message||String(e);console.warn('教師審核清單暫不可用',e);}
     const {data,error}=await c.from('teaching_materials').select('*').order('grade').order('subject').order('title');if(error)throw error;
     materials=data||[];renderTeacherMaterials(profile.display_name);
   }catch(e){$('#teacher-root').innerHTML=message('教材管理載入失敗：'+e.message,'error');}
